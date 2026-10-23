@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  NumericKeypad,
+  type NumericKeypadChange,
+} from '@/components/form/numeric-keypad';
 import { OptionGroup } from '@/components/form/option-group';
 import { TextField } from '@/components/form/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -45,6 +50,8 @@ export default function AddExpenseScreen() {
   const [dateError, setDateError] = useState<string | null>(null);
 
   const [amount, setAmount] = useState('');
+  const [amountCaret, setAmountCaret] = useState(0);
+  const [isKeypadOpen, setIsKeypadOpen] = useState(true);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<number | null>(SAMPLE_ACCOUNTS[0]?.id ?? null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -56,6 +63,7 @@ export default function AddExpenseScreen() {
   const clearPreview = () => setPreview(null);
 
   const startEditingDate = () => {
+    setIsKeypadOpen(false);
     setDateDraft(formatEditableDate(occurredAt));
     setDateError(null);
     setIsEditingDate(true);
@@ -86,10 +94,16 @@ export default function AddExpenseScreen() {
     setIsEditingDate(false);
   };
 
-  const handleAmountChange = (value: string) => {
+  const handleAmountChange = ({ value, caret }: NumericKeypadChange) => {
     setAmount(value);
+    setAmountCaret(caret);
     setAmountError(null);
     clearPreview();
+  };
+
+  const dismissAmountEditor = () => {
+    setIsKeypadOpen(false);
+    Keyboard.dismiss();
   };
 
   const handleSave = () => {
@@ -126,6 +140,7 @@ export default function AddExpenseScreen() {
         occurredOn: effectiveDate,
       })
     );
+    dismissAmountEditor();
 
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
@@ -138,6 +153,7 @@ export default function AddExpenseScreen() {
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
           <ScrollView
             ref={scrollRef}
+            style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
@@ -188,10 +204,15 @@ export default function AddExpenseScreen() {
                 label="Amount"
                 prefix={selectedAccount?.currency}
                 value={amount}
-                onChangeText={handleAmountChange}
+                inputMode="none"
+                contextMenuHidden
+                caretHidden={!isKeypadOpen}
+                selection={isKeypadOpen ? { start: amountCaret, end: amountCaret } : undefined}
+                onSelectionChange={(event) => {
+                  setAmountCaret(event.nativeEvent.selection.start);
+                }}
+                onFocus={() => setIsKeypadOpen(true)}
                 placeholder="0"
-                keyboardType="decimal-pad"
-                inputMode="decimal"
                 autoFocus
                 error={amountError ?? undefined}
               />
@@ -232,6 +253,7 @@ export default function AddExpenseScreen() {
                   setDescription(value);
                   clearPreview();
                 }}
+                onFocus={() => setIsKeypadOpen(false)}
                 placeholder="Weekly grocery run"
                 multiline
                 maxLength={280}
@@ -263,6 +285,15 @@ export default function AddExpenseScreen() {
               ) : null}
             </View>
           </ScrollView>
+
+          {isKeypadOpen ? (
+            <NumericKeypad
+              value={amount}
+              caret={amountCaret}
+              onChange={handleAmountChange}
+              onSubmit={dismissAmountEditor}
+            />
+          ) : null}
         </SafeAreaView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -271,6 +302,9 @@ export default function AddExpenseScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scroll: {
     flex: 1,
   },
   scrollContent: {
