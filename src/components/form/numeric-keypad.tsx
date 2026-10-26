@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { PanelHeader } from '@/components/form/panel-header';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,6 +22,10 @@ export type NumericKeypadProps = {
   onChange: (change: NumericKeypadChange) => void;
   /** Called when the checkmark key is pressed. */
   onSubmit?: () => void;
+  /** Header title, for example `Select amount`; renders a dismiss header when set. */
+  title?: string;
+  /** Called when the header is pressed to hide the panel. */
+  onDismiss?: () => void;
   /** Total keypad height, including padding. */
   height?: number;
   maxIntegerDigits?: number;
@@ -81,6 +86,8 @@ export function NumericKeypad({
   caret,
   onChange,
   onSubmit,
+  title,
+  onDismiss,
   height = DEFAULT_KEYPAD_HEIGHT,
   maxIntegerDigits = 12,
   maxDecimals = 2,
@@ -149,12 +156,13 @@ export function NumericKeypad({
         styles.container,
         {
           height,
-          backgroundColor: theme.background,
-          borderTopColor: theme.backgroundSelected,
+          backgroundColor: theme.backgroundSelected,
         },
         style,
       ]}>
-      <View style={styles.grid}>
+      <View style={styles.content}>
+        {title ? <PanelHeader title={title} onDismiss={onDismiss} /> : null}
+        <View style={styles.grid}>
         <View style={styles.row}>
           {DIGITS.slice(0, 3).map((digit) => (
             <DigitKey key={digit} digit={digit} onPress={handleDigit} />
@@ -219,6 +227,7 @@ export function NumericKeypad({
             variant="primary"
             glyph
           />
+        </View>
         </View>
       </View>
     </View>
@@ -297,14 +306,18 @@ function Key({
 
 const styles = StyleSheet.create({
   container: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     padding: Spacing.two,
   },
-  grid: {
+  content: {
     flex: 1,
     width: '100%',
     maxWidth: 520,
     alignSelf: 'center',
+    gap: Spacing.two,
+  },
+  grid: {
+    flex: 1,
+    width: '100%',
     gap: Spacing.two,
   },
   row: {

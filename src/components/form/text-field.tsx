@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +10,8 @@ export type TextFieldProps = TextInputProps & {
   error?: string;
   hint?: string;
   prefix?: string;
+  /** Override the focus highlight; defaults to tracking real input focus. */
+  focused?: boolean;
 };
 
 export function TextField({
@@ -17,10 +20,15 @@ export function TextField({
   hint,
   prefix,
   multiline,
+  focused,
+  onFocus,
+  onBlur,
   style,
   ...rest
 }: TextFieldProps) {
   const theme = useTheme();
+  const [isFocused, setIsFocused] = useState(false);
+  const highlighted = focused ?? isFocused;
 
   return (
     <View style={styles.container}>
@@ -31,7 +39,10 @@ export function TextField({
       <View
         style={[
           styles.inputWrapper,
-          { backgroundColor: theme.backgroundElement },
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: highlighted ? theme.accent : 'transparent',
+          },
           multiline && styles.inputWrapperMultiline,
         ]}>
         {prefix ? (
@@ -43,6 +54,14 @@ export function TextField({
           placeholderTextColor={theme.textSecondary}
           selectionColor={theme.accent}
           multiline={multiline}
+          onFocus={(event) => {
+            setIsFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsFocused(false);
+            onBlur?.(event);
+          }}
           style={[
             styles.input,
             { color: theme.text },
@@ -78,6 +97,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: Spacing.three,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   inputWrapperMultiline: {
     alignItems: 'flex-start',

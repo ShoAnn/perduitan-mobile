@@ -17,7 +17,8 @@ import {
   NumericKeypad,
   type NumericKeypadChange,
 } from '@/components/form/numeric-keypad';
-import { OptionGroup } from '@/components/form/option-group';
+import { OptionPicker } from '@/components/form/option-picker';
+import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -33,6 +34,9 @@ import {
   parseAmountToCents,
   parseEditableDate,
 } from '@/utils/transactions';
+
+/** Which bottom panel is open; the keypad and option pickers are exclusive. */
+type ActivePanel = 'amount' | 'account' | 'category' | null;
 
 export default function AddExpenseScreen() {
   const theme = useTheme();
@@ -51,7 +55,7 @@ export default function AddExpenseScreen() {
 
   const [amount, setAmount] = useState('');
   const [amountCaret, setAmountCaret] = useState(0);
-  const [isKeypadOpen, setIsKeypadOpen] = useState(true);
+  const [activePanel, setActivePanel] = useState<ActivePanel>('amount');
   const [amountError, setAmountError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<number | null>(SAMPLE_ACCOUNTS[0]?.id ?? null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -59,11 +63,12 @@ export default function AddExpenseScreen() {
   const [preview, setPreview] = useState<TransactionCreate | null>(null);
 
   const selectedAccount = SAMPLE_ACCOUNTS.find((account) => account.id === accountId);
+  const selectedCategory = categories.find((category) => category.id === categoryId);
 
   const clearPreview = () => setPreview(null);
 
   const startEditingDate = () => {
-    setIsKeypadOpen(false);
+    setActivePanel(null);
     setDateDraft(formatEditableDate(occurredAt));
     setDateError(null);
     setIsEditingDate(true);
@@ -101,9 +106,43 @@ export default function AddExpenseScreen() {
     clearPreview();
   };
 
-  const dismissAmountEditor = () => {
-    setIsKeypadOpen(false);
+  const dismissPanel = () => {
+    setActivePanel(null);
     Keyboard.dismiss();
+  };
+
+  const submitAmount = () => {
+    // Advance focus to the next select input.
+    setActivePanel('account');
+  };
+
+  const openAccountPicker = () => {
+    Keyboard.dismiss();
+    setActivePanel('account');
+  };
+
+  const openCategoryPicker = () => {
+    Keyboard.dismiss();
+    setActivePanel('category');
+  };
+
+  const handleAccountChange = (value: number | null) => {
+    setAccountId(value);
+    clearPreview();
+    // Advance focus to the next select input.
+    setActivePanel('category');
+  };
+
+  const handleCategoryChange = (value: number | null) => {
+    setCategoryId(value);
+    clearPreview();
+    setActivePanel(null);
+  };
+
+  const handleAddCategory = () => {
+    setActivePanel(null);
+    Keyboard.dismiss();
+    router.push('/new-category');
   };
 
   const handleSave = () => {
@@ -140,7 +179,7 @@ export default function AddExpenseScreen() {
         occurredOn: effectiveDate,
       })
     );
-    dismissAmountEditor();
+    dismissPanel();
 
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
@@ -204,46 +243,34 @@ export default function AddExpenseScreen() {
                 label="Amount"
                 prefix={selectedAccount?.currency}
                 value={amount}
+                focused={activePanel === 'amount'}
                 inputMode="none"
                 contextMenuHidden
-                caretHidden={!isKeypadOpen}
-                selection={isKeypadOpen ? { start: amountCaret, end: amountCaret } : undefined}
+                caretHidden={activePanel !== 'amount'}
+                selection={activePanel === 'amount' ? { start: amountCaret, end: amountCaret } : undefined}
                 onSelectionChange={(event) => {
                   setAmountCaret(event.nativeEvent.selection.start);
                 }}
-                onFocus={() => setIsKeypadOpen(true)}
+                onFocus={() => setActivePanel('amount')}
                 placeholder="0"
                 autoFocus
                 error={amountError ?? undefined}
               />
 
-              <OptionGroup
+              <SelectField
                 label="Account"
-                options={SAMPLE_ACCOUNTS.map((account) => ({
-                  value: account.id,
-                  label: account.name,
-                }))}
-                value={accountId}
-                onChange={(value) => {
-                  setAccountId(value);
-                  clearPreview();
-                }}
+                value={selectedAccount?.name ?? null}
+                placeholder="Select account"
+                onPress={openAccountPicker}
+                open={activePanel === 'account'}
               />
 
-              <OptionGroup
+              <SelectField
                 label="Category"
-                options={expenseCategories.map((category) => ({
-                  value: category.id,
-                  label: category.name,
-                }))}
-                value={categoryId}
-                onChange={(value) => {
-                  setCategoryId(value);
-                  clearPreview();
-                }}
-                allowNone
-                onAdd={() => router.push('/new-category')}
-                addAccessibilityLabel="Add category"
+                value={categoryId === null ? 'None' : (selectedCategory?.name ?? null)}
+                placeholder="Select category"
+                onPress={openCategoryPicker}
+                open={activePanel === 'category'}
               />
 
               <TextField
@@ -253,7 +280,7 @@ export default function AddExpenseScreen() {
                   setDescription(value);
                   clearPreview();
                 }}
-                onFocus={() => setIsKeypadOpen(false)}
+                onFocus={() => setActivePanel(null)}
                 placeholder="Weekly grocery run"
                 multiline
                 maxLength={280}
@@ -286,12 +313,44 @@ export default function AddExpenseScreen() {
             </View>
           </ScrollView>
 
-          {isKeypadOpen ? (
+          {activePanel === 'amount' ? (
             <NumericKeypad
               value={amount}
               caret={amountCaret}
               onChange={handleAmountChange}
-              onSubmit={dismissAmountEditor}
+              onSubmit={submitAmount}
+              title="Select amount"
+              onDismiss={dismissPanel}
+            />
+          ) : null}
+
+          {activePanel === 'account' ? (
+            <OptionPicker
+              options={SAMPLE_ACCOUNTS.map((account) => ({
+                value: account.id,
+                label: account.name,
+              }))}
+              value={accountId}
+              onChange={handleAccountChange}
+              title="Select account"
+              onDismiss={dismissPanel}
+            />
+          ) : null}
+
+          {activePanel === 'category' ? (
+            <OptionPicker
+              options={expenseCategories.map((category) => ({
+                value: category.id,
+                label: category.name,
+              }))}
+              value={categoryId}
+              onChange={handleCategoryChange}
+              allowNone
+              onAdd={handleAddCategory}
+              addLabel="Add category"
+              addAccessibilityLabel="Add category"
+              title="Select category"
+              onDismiss={dismissPanel}
             />
           ) : null}
         </SafeAreaView>

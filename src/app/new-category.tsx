@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { OptionGroup } from '@/components/form/option-group';
+import { OptionPicker } from '@/components/form/option-picker';
+import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,6 +32,7 @@ export default function NewCategoryScreen() {
 
   const [name, setName] = useState('');
   const [kind, setKind] = useState<CategoryKind>('expense');
+  const [isKindPickerOpen, setIsKindPickerOpen] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
   const dismiss = () => {
@@ -40,7 +43,24 @@ export default function NewCategoryScreen() {
     }
   };
 
+  const openKindPicker = () => {
+    Keyboard.dismiss();
+    setIsKindPickerOpen(true);
+  };
+
+  const closeKindPicker = () => {
+    setIsKindPickerOpen(false);
+  };
+
+  const handleKindChange = (value: CategoryKind | null) => {
+    if (value !== null) {
+      setKind(value);
+    }
+    closeKindPicker();
+  };
+
   const handleSubmit = () => {
+    setIsKindPickerOpen(false);
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -84,18 +104,16 @@ export default function NewCategoryScreen() {
                 autoCapitalize="words"
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
+                onFocus={() => setIsKindPickerOpen(false)}
                 error={nameError ?? undefined}
               />
 
-              <OptionGroup
+              <SelectField
                 label="Kind"
-                options={KIND_OPTIONS}
                 value={kind}
-                onChange={(value) => {
-                  if (value !== null) {
-                    setKind(value);
-                  }
-                }}
+                placeholder="Select kind"
+                onPress={openKindPicker}
+                open={isKindPickerOpen}
                 hint="Used to group the category on transaction forms."
               />
 
@@ -124,6 +142,16 @@ export default function NewCategoryScreen() {
               </Pressable>
             </View>
           </ScrollView>
+
+          {isKindPickerOpen ? (
+            <OptionPicker
+              options={KIND_OPTIONS}
+              value={kind}
+              onChange={handleKindChange}
+              title="Select kind"
+              onDismiss={closeKindPicker}
+            />
+          ) : null}
         </SafeAreaView>
       </KeyboardAvoidingView>
     </ThemedView>
