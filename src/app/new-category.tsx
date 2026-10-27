@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import {
   Keyboard,
@@ -17,8 +18,9 @@ import { TextField } from '@/components/form/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { isUniqueConstraintError } from '@/db/errors';
 import { useTheme } from '@/hooks/use-theme';
-import { addCategory, hasCategoryName } from '@/stores/categories';
+import { addCategory, hasCategoryName, useCategories } from '@/stores/categories';
 import type { CategoryKind } from '@/types/api';
 
 const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
@@ -29,11 +31,16 @@ const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
 export default function NewCategoryScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const db = useSQLiteContext();
+
+  // Warm the cache so `hasCategoryName` can check duplicates while typing.
+  useCategories(db);
 
   const [name, setName] = useState('');
   const [kind, setKind] = useState<CategoryKind>('expense');
   const [isKindPickerOpen, setIsKindPickerOpen] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const dismiss = () => {
     if (router.canGoBack()) {
@@ -59,8 +66,12 @@ export default function NewCategoryScreen() {
     closeKindPicker();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsKindPickerOpen(false);
+    if (isSaving) {
+      return;
+    }
+
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -72,7 +83,19 @@ export default function NewCategoryScreen() {
       return;
     }
 
-    addCategory({ name: trimmedName, kind });
+    setIsSaving(true);
+    try {
+      await addCategory(db, { name: trimmedName, kind });
+    } catch (error) {
+      setNameError(
+        isUniqueConstraintError(error)
+          ? 'A category with this name already exists.'
+          : 'Could not save the category. Please try again.'
+      );
+      return;
+    } finally {
+      setIsSaving(false);
+    }
 
     if (router.canGoBack()) {
       router.back();
@@ -119,14 +142,19 @@ export default function NewCategoryScreen() {
 
               <Pressable
                 onPress={handleSubmit}
+                disabled={isSaving}
                 accessibilityRole="button"
                 accessibilityLabel="Add category"
+                accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.submitButton,
-                  { backgroundColor: theme.text, opacity: pressed ? 0.8 : 1 },
+                  {
+                    backgroundColor: theme.text,
+                    opacity: isSaving ? 0.6 : pressed ? 0.8 : 1,
+                  },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  Add category
+                  {isSaving ? 'Adding…' : 'Add category'}
                 </ThemedText>
               </Pressable>
 

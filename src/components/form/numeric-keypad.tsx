@@ -194,11 +194,7 @@ export function NumericKeypad({
           {DIGITS.slice(6, 9).map((digit) => (
             <DigitKey key={digit} digit={digit} onPress={handleDigit} />
           ))}
-          <View
-            style={styles.key}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          />
+          <DigitKey digit="000" onPress={handleDigit} />
         </View>
 
         <View style={styles.row}>

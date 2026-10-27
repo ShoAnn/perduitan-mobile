@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   TextInput,
   View,
-  type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,11 +22,11 @@ import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { SAMPLE_ACCOUNTS } from '@/constants/sample-data';
 import { Spacing } from '@/constants/theme';
+import { insertTransaction } from '@/db/transactions';
 import { useTheme } from '@/hooks/use-theme';
+import { useAccounts } from '@/stores/accounts';
 import { useCategories } from '@/stores/categories';
-import type { TransactionCreate } from '@/types/api';
 import {
   buildExpensePayload,
   formatDate,
@@ -41,9 +41,10 @@ type ActivePanel = 'amount' | 'account' | 'category' | null;
 export default function AddExpenseScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const scrollRef = useRef<ScrollViewInstance>(null);
+  const db = useSQLiteContext();
 
-  const categories = useCategories();
+  const accounts = useAccounts(db);
+  const categories = useCategories(db);
   const expenseCategories = useMemo(
     () => categories.filter((category) => category.kind === 'expense'),
     [categories]
@@ -57,15 +58,17 @@ export default function AddExpenseScreen() {
   const [amountCaret, setAmountCaret] = useState(0);
   const [activePanel, setActivePanel] = useState<ActivePanel>('amount');
   const [amountError, setAmountError] = useState<string | null>(null);
-  const [accountId, setAccountId] = useState<number | null>(SAMPLE_ACCOUNTS[0]?.id ?? null);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [description, setDescription] = useState('');
-  const [preview, setPreview] = useState<TransactionCreate | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const selectedAccount = SAMPLE_ACCOUNTS.find((account) => account.id === accountId);
+  // Fall back to the first stored account until the user picks one.
+  const accountId = selectedAccountId ?? accounts[0]?.id ?? null;
+
+  const selectedAccount = accounts.find((account) => account.id === accountId);
   const selectedCategory = categories.find((category) => category.id === categoryId);
-
-  const clearPreview = () => setPreview(null);
 
   const startEditingDate = () => {
     setActivePanel(null);
@@ -84,7 +87,6 @@ export default function AddExpenseScreen() {
     setOccurredAt(parsed);
     setDateError(null);
     setIsEditingDate(false);
-    clearPreview();
   };
 
   const stopEditingDate = () => {
@@ -103,7 +105,6 @@ export default function AddExpenseScreen() {
     setAmount(value);
     setAmountCaret(caret);
     setAmountError(null);
-    clearPreview();
   };
 
   const dismissPanel = () => {
@@ -127,15 +128,13 @@ export default function AddExpenseScreen() {
   };
 
   const handleAccountChange = (value: number | null) => {
-    setAccountId(value);
-    clearPreview();
+    setSelectedAccountId(value);
     // Advance focus to the next select input.
     setActivePanel('category');
   };
 
   const handleCategoryChange = (value: number | null) => {
     setCategoryId(value);
-    clearPreview();
     setActivePanel(null);
   };
 
@@ -145,7 +144,11 @@ export default function AddExpenseScreen() {
     router.push('/new-category');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+
     let effectiveDate = occurredAt;
 
     // Commit an in-progress date edit so tapping Save never uses the old date.
@@ -167,21 +170,37 @@ export default function AddExpenseScreen() {
       return;
     }
     if (accountId === null) {
+      setSaveError('Select an account before saving.');
       return;
     }
 
-    setPreview(
-      buildExpensePayload({
-        accountId,
-        categoryId,
-        amountCents,
-        description,
-        occurredOn: effectiveDate,
-      })
-    );
+    const payload = buildExpensePayload({
+      accountId,
+      categoryId,
+      amountCents,
+      description,
+      occurredOn: effectiveDate,
+    });
+
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await insertTransaction(db, payload);
+    } catch (error) {
+      console.error('Failed to save transaction', error);
+      setSaveError('Could not save the expense. Please try again.');
+      return;
+    } finally {
+      setIsSaving(false);
+    }
+
     dismissPanel();
 
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   };
 
   return (
@@ -191,7 +210,6 @@ export default function AddExpenseScreen() {
         style={styles.container}>
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
           <ScrollView
-            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -278,7 +296,6 @@ export default function AddExpenseScreen() {
                 value={description}
                 onChangeText={(value) => {
                   setDescription(value);
-                  clearPreview();
                 }}
                 onFocus={() => setActivePanel(null)}
                 placeholder="Weekly grocery run"
@@ -288,27 +305,26 @@ export default function AddExpenseScreen() {
 
               <Pressable
                 onPress={handleSave}
+                disabled={isSaving}
                 accessibilityRole="button"
                 accessibilityLabel="Save expense"
+                accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
-                  { backgroundColor: theme.text, opacity: pressed ? 0.8 : 1 },
+                  {
+                    backgroundColor: theme.text,
+                    opacity: isSaving ? 0.6 : pressed ? 0.8 : 1,
+                  },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  Save expense
+                  {isSaving ? 'Saving…' : 'Save expense'}
                 </ThemedText>
               </Pressable>
 
-              {preview ? (
-                <ThemedView type="backgroundElement" style={styles.preview}>
-                  <ThemedText type="smallBold">Preview — not sent yet</ThemedText>
-                  <ThemedText type="code" themeColor="textSecondary">
-                    {JSON.stringify(preview, null, 2)}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    POST /transactions is not wired up yet.
-                  </ThemedText>
-                </ThemedView>
+              {saveError ? (
+                <ThemedText type="small" style={{ color: theme.negative }}>
+                  {saveError}
+                </ThemedText>
               ) : null}
             </View>
           </ScrollView>
@@ -326,7 +342,7 @@ export default function AddExpenseScreen() {
 
           {activePanel === 'account' ? (
             <OptionPicker
-              options={SAMPLE_ACCOUNTS.map((account) => ({
+              options={accounts.map((account) => ({
                 value: account.id,
                 label: account.name,
               }))}
@@ -397,10 +413,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
-  },
-  preview: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
   },
 });

@@ -1,14 +1,16 @@
-import { useSyncExternalStore } from 'react';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { useEffect, useSyncExternalStore } from 'react';
 
-import { SAMPLE_CATEGORIES } from '@/constants/sample-data';
+import { insertCategory, listCategories } from '@/db/categories';
 import type { Category, CategoryCreate } from '@/types/api';
 
 /**
- * Temporary in-memory stand-in for `GET /categories` and `POST /categories`
- * until the API client is wired up. Mirrors the API's ordering (by name) and
- * its name-conflict rule so screens behave the same once it is.
+ * Shared cache of the categories stored in SQLite. Screens subscribe through
+ * `useCategories`, which keeps them in sync after a category is added.
  */
-let categories: Category[] = [...SAMPLE_CATEGORIES].sort((a, b) => a.name.localeCompare(b.name));
+let categories: Category[] = [];
+let isLoaded = false;
+let loadPromise: Promise<void> | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -23,6 +25,29 @@ function getSnapshot() {
   return categories;
 }
 
+function emit() {
+  listeners.forEach((listener) => listener());
+}
+
+/** Reloads the cache from SQLite, sharing an in-flight query between callers. */
+export async function refreshCategories(db: SQLiteDatabase): Promise<void> {
+  if (loadPromise) {
+    return loadPromise;
+  }
+
+  loadPromise = (async () => {
+    categories = await listCategories(db);
+    isLoaded = true;
+    emit();
+  })();
+
+  try {
+    await loadPromise;
+  } finally {
+    loadPromise = null;
+  }
+}
+
 function normalizeName(name: string) {
   return name.trim().toLocaleLowerCase();
 }
@@ -33,22 +58,30 @@ export function hasCategoryName(name: string): boolean {
   return categories.some((category) => normalizeName(category.name) === normalized);
 }
 
-/** Adds a category and returns it, keeping the list ordered by name. */
-export function addCategory(input: CategoryCreate): Category {
-  const category: Category = {
-    id: Math.max(0, ...categories.map((existing) => existing.id)) + 1,
-    name: input.name.trim(),
-    kind: input.kind,
-    created_at: new Date().toISOString(),
-  };
-
-  categories = [...categories, category].sort((a, b) => a.name.localeCompare(b.name));
-  listeners.forEach((listener) => listener());
-
+/**
+ * Adds a category to SQLite and refreshes the cache. Throws when the name is
+ * already taken, so callers can surface a field error.
+ */
+export async function addCategory(
+  db: SQLiteDatabase,
+  input: CategoryCreate
+): Promise<Category> {
+  const category = await insertCategory(db, input);
+  await refreshCategories(db);
   return category;
 }
 
-/** Subscribes to the category list, so screens update after an add. */
-export function useCategories(): Category[] {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+/** Subscribes to the stored categories, loading them on first use. */
+export function useCategories(db: SQLiteDatabase): Category[] {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      refreshCategories(db).catch((error: unknown) => {
+        console.error('Failed to load categories', error);
+      });
+    }
+  }, [db]);
+
+  return snapshot;
 }
