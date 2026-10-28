@@ -146,7 +146,7 @@ export default function EditAccountScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/accounts');
+      router.replace('/');
     }
   };
 

@@ -55,6 +55,48 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
           ON transactions (account_id, occurred_on DESC);
       `);
 
+      const now = new Date().toISOString();
+
+      // Seed starter account
+      await txn.runAsync(
+        `INSERT INTO accounts (name, type, currency, created_at, archived_at) VALUES (?, ?, ?, ?, ?)`,
+        'Tabungan', 'savings', 'IDR', now, null
+      );
+
+      // Seed income categories
+      const incomeCategories = [
+        'salary',
+        'commission/gig',
+        'passive income',
+        'investment return',
+      ];
+      for (const name of incomeCategories) {
+        await txn.runAsync(
+          `INSERT INTO categories (name, kind, created_at) VALUES (?, ?, ?)`,
+          name, 'income', now
+        );
+      }
+
+      // Seed expense categories
+      const expenseCategories = [
+        'Housing',
+        'Utilities',
+        'Groceries',
+        'Dining Out',
+        'Transportation',
+        'Healthcare',
+        'Entertainment',
+        'Shopping',
+        'Savings',
+        'Miscellaneous',
+      ];
+      for (const name of expenseCategories) {
+        await txn.runAsync(
+          `INSERT INTO categories (name, kind, created_at) VALUES (?, ?, ?)`,
+          name, 'expense', now
+        );
+      }
+
       // Record the version inside the transaction so a half-applied migration
       // can never be mistaken for a complete one.
       await txn.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -36,9 +36,14 @@ import {
 
 type ActivePanel = 'amount' | 'account' | 'category' | null;
 
+function sentenceCase(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 export default function AddIncomeScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const db = useSQLiteContext();
 
   const accounts = useAccounts(db);
@@ -57,7 +62,15 @@ export default function AddIncomeScreen() {
   const [amountCaret, setAmountCaret] = useState(0);
   const [activePanel, setActivePanel] = useState<ActivePanel>('amount');
   const [amountError, setAmountError] = useState<string | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const initialAccountId = (() => {
+    const raw = params.accountId;
+    if (typeof raw === 'string') {
+      const parsed = parseInt(raw, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return null;
+  })();
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(initialAccountId);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +79,18 @@ export default function AddIncomeScreen() {
   const accountId = selectedAccountId ?? accounts[0]?.id ?? null;
   const selectedAccount = accounts.find((account) => account.id === accountId);
   const selectedCategory = categories.find((category) => category.id === categoryId);
+
+  useEffect(() => {
+    if (incomeCategories.length > 0 && categoryId === null) {
+      const salaryCategory = incomeCategories.find(
+        (c) => c.name.toLowerCase() === 'salary'
+      );
+      if (salaryCategory) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCategoryId(salaryCategory.id);
+      }
+    }
+  }, [incomeCategories, categoryId]);
 
   const startEditingDate = () => {
     setActivePanel(null);
@@ -134,6 +159,12 @@ export default function AddIncomeScreen() {
     setActivePanel(null);
     Keyboard.dismiss();
     router.push('/new-category');
+  };
+
+  const handleAddAccount = () => {
+    setActivePanel(null);
+    Keyboard.dismiss();
+    router.push('/add-account');
   };
 
   const handleSave = async () => {
@@ -272,9 +303,7 @@ export default function AddIncomeScreen() {
 
               <SelectField
                 label="Category"
-                value={
-                  categoryId === null ? 'None' : (selectedCategory?.name ?? null)
-                }
+                value={selectedCategory ? sentenceCase(selectedCategory.name) : null}
                 placeholder="Select category"
                 onPress={openCategoryPicker}
                 open={activePanel === 'category'}
@@ -287,7 +316,8 @@ export default function AddIncomeScreen() {
                   setDescription(value);
                 }}
                 onFocus={() => setActivePanel(null)}
-                placeholder="Weekly grocery run"
+                placeholder="August salary with bonuses included..."
+                placeholderTextColor={`${theme.textSecondary}B3`}
                 multiline
                 maxLength={280}
               />
@@ -337,6 +367,9 @@ export default function AddIncomeScreen() {
               }))}
               value={accountId}
               onChange={handleAccountChange}
+              onAdd={handleAddAccount}
+              addLabel="Add account"
+              addAccessibilityLabel="Add account"
               title="Select account"
               onDismiss={dismissPanel}
             />
@@ -344,13 +377,22 @@ export default function AddIncomeScreen() {
 
           {activePanel === 'category' ? (
             <OptionPicker
-              options={incomeCategories.map((category) => ({
-                value: category.id,
-                label: category.name,
-              }))}
+              options={[
+                ...incomeCategories
+                  .filter((c) => c.name.toLowerCase() === 'salary')
+                  .map((category) => ({
+                    value: category.id,
+                    label: sentenceCase(category.name),
+                  })),
+                ...incomeCategories
+                  .filter((c) => c.name.toLowerCase() !== 'salary')
+                  .map((category) => ({
+                    value: category.id,
+                    label: sentenceCase(category.name),
+                  })),
+              ]}
               value={categoryId}
               onChange={handleCategoryChange}
-              allowNone
               onAdd={handleAddCategory}
               addLabel="Add category"
               addAccessibilityLabel="Add category"

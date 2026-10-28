@@ -19,8 +19,8 @@ export async function getAccountBalance(db: SQLiteDatabase, accountId: number): 
   return row?.total ?? 0;
 }
 
-/** Lists transactions with account and category names, ordered newest first. */
-export async function listTransactions(db: SQLiteDatabase): Promise<{
+/** A transaction joined with its account and category names. */
+export type TransactionWithNames = {
   id: number;
   account_id: number;
   account_name: string;
@@ -30,13 +30,31 @@ export async function listTransactions(db: SQLiteDatabase): Promise<{
   description: string | null;
   occurred_on: string;
   created_at: string;
-}[]> {
-  return db.getAllAsync(
+};
+
+/** Lists transactions with account and category names, ordered by day (newest first). */
+export async function listTransactions(db: SQLiteDatabase): Promise<TransactionWithNames[]> {
+  return db.getAllAsync<TransactionWithNames>(
     `SELECT t.id, t.account_id, a.name AS account_name, t.category_id, c.name AS category_name, t.amount_cents, t.description, t.occurred_on, t.created_at
      FROM transactions t
      LEFT JOIN accounts a ON a.id = t.account_id
      LEFT JOIN categories c ON c.id = t.category_id
-     ORDER BY t.created_at DESC, t.id DESC`
+     ORDER BY t.occurred_on DESC, t.created_at DESC, t.id DESC`
+  );
+}
+
+/** Returns a single transaction with account and category names, or null when missing. */
+export async function getTransactionById(
+  db: SQLiteDatabase,
+  id: number
+): Promise<TransactionWithNames | null> {
+  return db.getFirstAsync<TransactionWithNames>(
+    `SELECT t.id, t.account_id, a.name AS account_name, t.category_id, c.name AS category_name, t.amount_cents, t.description, t.occurred_on, t.created_at
+     FROM transactions t
+     LEFT JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.id = ?`,
+    id
   );
 }
 

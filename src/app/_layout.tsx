@@ -25,9 +25,11 @@ export default function RootLayout() {
               name="new-category"
               options={{ presentation: 'modal', title: 'New category' }}
             />
-            <Stack.Screen name="accounts" options={{ title: 'Accounts' }} />
+
             <Stack.Screen name="edit-account" options={{ title: 'Edit account' }} />
+            <Stack.Screen name="add-account" options={{ title: 'Add account' }} />
             <Stack.Screen name="history" options={{ title: 'History' }} />
+            <Stack.Screen name="transaction/[id]" options={{ title: 'Transaction' }} />
           </Stack>
         </SQLiteProvider>
       </Suspense>

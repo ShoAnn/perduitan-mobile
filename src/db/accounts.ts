@@ -30,6 +30,32 @@ export async function updateAccount(
   return updated;
 }
 
+/** Mirrors `POST /accounts`: creates a new account. */
+export async function addAccount(
+  db: SQLiteDatabase,
+  input: { name: string; type: AccountType; currency?: string }
+): Promise<Account> {
+  const currency = input.currency ?? 'IDR';
+  const createdAt = new Date().toISOString();
+  const result = await db.runAsync(
+    'INSERT INTO accounts (name, type, currency, created_at, archived_at) VALUES (?, ?, ?, ?, ?)',
+    input.name,
+    input.type,
+    currency,
+    createdAt,
+    null
+  );
+  const id = result.lastInsertRowId ? Number(result.lastInsertRowId) : null;
+  if (id === null) {
+    throw new Error('Failed to insert account');
+  }
+  const account = await getAccountById(db, id);
+  if (!account) {
+    throw new Error('Account not found after insert');
+  }
+  return account;
+}
+
 /** Mirrors `GET /accounts`: active accounts only, ordered by name. */
 export async function listAccounts(db: SQLiteDatabase): Promise<Account[]> {
   return db.getAllAsync<Account>(
@@ -37,5 +63,14 @@ export async function listAccounts(db: SQLiteDatabase): Promise<Account[]> {
      FROM accounts
      WHERE archived_at IS NULL
      ORDER BY name COLLATE NOCASE`
+  );
+}
+
+/** Mirrors `DELETE /accounts/{accountId}` via soft delete: stamps `archived_at`. */
+export async function archiveAccount(db: SQLiteDatabase, id: number): Promise<void> {
+  await db.runAsync(
+    'UPDATE accounts SET archived_at = ? WHERE id = ?',
+    new Date().toISOString(),
+    id
   );
 }

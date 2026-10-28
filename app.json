@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "perduitan-mobile",
+    "name": "perduitan",
     "slug": "perduitan-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,8 @@
     "scheme": "perduitanmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.anonymous.perduitanmobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +26,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-no-splash",
       [
         "expo-router",
         {
@@ -34,19 +36,40 @@
           }
         }
       ],
+      "expo-sqlite",
       [
-        "expo-splash-screen",
+        "expo-build-properties",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "android": {
+            "buildArchs": [
+              "arm64-v8a"
+            ],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "enableBundleCompression": true,
+            "useLegacyPackaging": true
+          }
         }
-      ],
-      "expo-sqlite"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "headers": {
+          "Cross-Origin-Embedder-Policy": "credentialless",
+          "Cross-Origin-Opener-Policy": "same-origin"
+        },
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a8ce3a20-c52d-46ea-b952-961ed9931a3d"
+      }
     }
   }
 }

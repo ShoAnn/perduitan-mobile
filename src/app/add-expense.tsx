@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -38,6 +38,10 @@ import {
 /** Which bottom panel is open; the keypad and option pickers are exclusive. */
 type ActivePanel = 'amount' | 'account' | 'category' | null;
 
+function sentenceCase(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 export default function AddExpenseScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -69,6 +73,18 @@ export default function AddExpenseScreen() {
 
   const selectedAccount = accounts.find((account) => account.id === accountId);
   const selectedCategory = categories.find((category) => category.id === categoryId);
+
+  useEffect(() => {
+    if (expenseCategories.length > 0 && categoryId === null) {
+      const diningCategory = expenseCategories.find(
+        (c) => c.name.toLowerCase() === 'dining out'
+      );
+      if (diningCategory) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCategoryId(diningCategory.id);
+      }
+    }
+  }, [expenseCategories, categoryId]);
 
   const startEditingDate = () => {
     setActivePanel(null);
@@ -142,6 +158,12 @@ export default function AddExpenseScreen() {
     setActivePanel(null);
     Keyboard.dismiss();
     router.push('/new-category');
+  };
+
+  const handleAddAccount = () => {
+    setActivePanel(null);
+    Keyboard.dismiss();
+    router.push('/add-account');
   };
 
   const handleSave = async () => {
@@ -285,7 +307,7 @@ export default function AddExpenseScreen() {
 
               <SelectField
                 label="Category"
-                value={categoryId === null ? 'None' : (selectedCategory?.name ?? null)}
+                value={selectedCategory ? sentenceCase(selectedCategory.name) : null}
                 placeholder="Select category"
                 onPress={openCategoryPicker}
                 open={activePanel === 'category'}
@@ -299,6 +321,7 @@ export default function AddExpenseScreen() {
                 }}
                 onFocus={() => setActivePanel(null)}
                 placeholder="Weekly grocery run"
+                placeholderTextColor={`${theme.textSecondary}B3`}
                 multiline
                 maxLength={280}
               />
@@ -350,18 +373,30 @@ export default function AddExpenseScreen() {
               onChange={handleAccountChange}
               title="Select account"
               onDismiss={dismissPanel}
+              onAdd={handleAddAccount}
+              addLabel="Add account"
+              addAccessibilityLabel="Add account"
             />
           ) : null}
 
           {activePanel === 'category' ? (
             <OptionPicker
-              options={expenseCategories.map((category) => ({
-                value: category.id,
-                label: category.name,
-              }))}
+              options={[
+                ...expenseCategories
+                  .filter((c) => c.name.toLowerCase() === 'dining out')
+                  .map((category) => ({
+                    value: category.id,
+                    label: sentenceCase(category.name),
+                  })),
+                ...expenseCategories
+                  .filter((c) => c.name.toLowerCase() !== 'dining out')
+                  .map((category) => ({
+                    value: category.id,
+                    label: sentenceCase(category.name),
+                  })),
+              ]}
               value={categoryId}
               onChange={handleCategoryChange}
-              allowNone
               onAdd={handleAddCategory}
               addLabel="Add category"
               addAccessibilityLabel="Add category"
