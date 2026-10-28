@@ -66,6 +66,19 @@ export async function listAccounts(db: SQLiteDatabase): Promise<Account[]> {
   );
 }
 
+/**
+ * Lists every account, including soft-deleted ones, ordered by name. Used where
+ * historical data (for example old transactions) still references archived
+ * accounts.
+ */
+export async function listAllAccounts(db: SQLiteDatabase): Promise<Account[]> {
+  return db.getAllAsync<Account>(
+    `SELECT id, name, type, currency, created_at, archived_at
+     FROM accounts
+     ORDER BY name COLLATE NOCASE`
+  );
+}
+
 /** Mirrors `DELETE /accounts/{accountId}` via soft delete: stamps `archived_at`. */
 export async function archiveAccount(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync(

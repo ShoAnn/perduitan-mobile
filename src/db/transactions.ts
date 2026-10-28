@@ -2,10 +2,19 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { TransactionCreate } from '@/types/api';
 
-/** Returns the account_id of the most recent transaction, or null if none exist. */
+/**
+ * Returns the account_id of the most recent transaction on an active account,
+ * or null if none exist. Archived (deleted) accounts are skipped so callers
+ * never point at an account that is no longer available.
+ */
 export async function getLastUsedAccountId(db: SQLiteDatabase): Promise<number | null> {
   const row = await db.getFirstAsync<{ account_id: number }>(
-    'SELECT account_id FROM transactions ORDER BY created_at DESC, id DESC LIMIT 1'
+    `SELECT t.account_id
+     FROM transactions t
+     JOIN accounts a ON a.id = t.account_id
+     WHERE a.archived_at IS NULL
+     ORDER BY t.created_at DESC, t.id DESC
+     LIMIT 1`
   );
   return row?.account_id ?? null;
 }

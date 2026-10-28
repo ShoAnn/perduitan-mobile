@@ -212,11 +212,9 @@ export default function AddIncomeScreen() {
     setIsSaving(false);
 
     dismissPanel();
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
+    // Return to the home screen instead of the screen that opened this form
+    // (e.g. add-account), which may still be sitting in a submitting state.
+    router.dismissTo('/');
   };
 
   return (

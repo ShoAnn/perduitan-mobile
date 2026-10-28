@@ -17,15 +17,19 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, MaxContentWidth } from '@/constants/theme';
 import { archiveAccount } from '@/db/accounts';
-import { getAccountBalance, getLastUsedAccountId } from '@/db/transactions';
+import { getAccountBalance } from '@/db/transactions';
 import { refreshAccounts, useAccounts } from '@/stores/accounts';
+import {
+  refreshLastUsedAccountId,
+  useLastUsedAccountId,
+} from '@/stores/last-used-account';
 import { useCallback, useRef, useState } from 'react';
 
 export default function HomeScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const accounts = useAccounts(db);
-  const [lastAccountId, setLastAccountId] = useState<number | null>(null);
+  const lastAccountId = useLastUsedAccountId(db);
   const [balance, setBalance] = useState<number>(0);
 
   const [showAccountsModal, setShowAccountsModal] = useState(false);
@@ -42,21 +46,9 @@ export default function HomeScreen() {
   // this screen regains focus (e.g. after saving income or an expense).
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-
-      getLastUsedAccountId(db)
-        .then((id) => {
-          if (isActive) {
-            setLastAccountId(id);
-          }
-        })
-        .catch((error: unknown) => {
-          console.error('Failed to load the last used account', error);
-        });
-
-      return () => {
-        isActive = false;
-      };
+      refreshLastUsedAccountId(db).catch((error: unknown) => {
+        console.error('Failed to load the last used account', error);
+      });
     }, [db])
   );
 
@@ -281,6 +273,7 @@ export default function HomeScreen() {
                               setShowAccountsModal(false);
                               await archiveAccount(db, item.id);
                               await refreshAccounts(db);
+                              await refreshLastUsedAccountId(db);
                             }}
                             accessibilityRole="button"
                             accessibilityLabel={

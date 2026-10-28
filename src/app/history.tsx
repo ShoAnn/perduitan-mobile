@@ -1,13 +1,17 @@
 import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import Storage from 'expo-sqlite/kv-store';
+import { FlatList, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { listAllAccounts } from '@/db/accounts';
 import { listTransactions } from '@/db/transactions';
 import { useTheme } from '@/hooks/use-theme';
+import { useLastUsedAccountId } from '@/stores/last-used-account';
+import type { Account } from '@/types/api';
 import { toDateString } from '@/utils/transactions';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -15,6 +19,22 @@ type Tab = 'expense' | 'income';
 type Transaction = Awaited<ReturnType<typeof listTransactions>>[number];
 
 const ALL_TIME = 'all';
+const SHOW_ARCHIVED_KEY = 'history.showArchivedAccounts';
+
+/** Account name with an `(archived)` marker for soft-deleted accounts. */
+function accountLabel(account: Account): string {
+  return account.archived_at ? `${account.name} (archived)` : account.name;
+}
+
+/** Reads the persisted "show archived" preference, defaulting to hidden. */
+function readShowArchived(): boolean {
+  try {
+    return Storage.getItemSync(SHOW_ARCHIVED_KEY) === '1';
+  } catch (error) {
+    console.error('Failed to load the show archived preference', error);
+    return false;
+  }
+}
 
 type Row =
   | { type: 'header'; key: string; label: string }
@@ -67,16 +87,73 @@ export default function HistoryScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
 
+  const lastUsedAccountId = useLastUsedAccountId(db);
+
   const [tab, setTab] = useState<Tab>('expense');
   const [transactions, setTransactions] = useState<Awaited<ReturnType<typeof listTransactions>>>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => monthKey(new Date()));
+  // `undefined` means the filter still follows the last used account. Once the
+  // user picks one (including "All accounts") their choice takes over.
+  const [accountFilter, setAccountFilter] = useState<number | null | undefined>(undefined);
+  const [showArchived, setShowArchived] = useState(readShowArchived);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   useEffect(() => {
     listTransactions(db).then((all) => {
       setTransactions(all);
     });
   }, [db]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    listAllAccounts(db)
+      .then((all) => {
+        if (isActive) {
+          setAccounts(all);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load accounts for the history filter', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [db]);
+
+  // Mount with the account used by the most recent transaction. Deleted
+  // accounts are not returned by the store, so this always points at a valid
+  // account (or at everything when there is no such account).
+  const selectedAccountId =
+    accountFilter === undefined
+      ? lastUsedAccountId !== null &&
+        accounts.some((account) => account.id === lastUsedAccountId)
+        ? lastUsedAccountId
+        : null
+      : accountFilter;
+
+  const accountOptions = useMemo(
+    () => (showArchived ? accounts : accounts.filter((account) => account.archived_at === null)),
+    [accounts, showArchived]
+  );
+
+  const selectedAccount = accounts.find((account) => account.id === selectedAccountId) ?? null;
+  const selectedAccountLabel = selectedAccount ? accountLabel(selectedAccount) : 'All accounts';
+
+  const handleShowArchivedChange = (value: boolean) => {
+    setShowArchived(value);
+    Storage.setItem(SHOW_ARCHIVED_KEY, value ? '1' : '0').catch((error: unknown) => {
+      console.error('Failed to save the show archived preference', error);
+    });
+
+    // Don't keep filtering by an account that is no longer listed.
+    if (!value && selectedAccount?.archived_at) {
+      setAccountFilter(null);
+    }
+  };
 
   const months = useMemo(() => {
     const keys = new Set(transactions.map((t) => t.occurred_on.slice(0, 7)));
@@ -90,10 +167,24 @@ export default function HistoryScreen() {
         if (tab === 'expense' ? t.amount_cents >= 0 : t.amount_cents <= 0) {
           return false;
         }
+        if (selectedAccountId !== null && t.account_id !== selectedAccountId) {
+          return false;
+        }
         return selectedMonth === ALL_TIME || t.occurred_on.startsWith(`${selectedMonth}-`);
       }),
-    [transactions, tab, selectedMonth]
+    [transactions, tab, selectedMonth, selectedAccountId]
   );
+
+  const emptyLabel = useMemo(() => {
+    const monthSuffix =
+      selectedMonth === ALL_TIME ? '' : ` in ${formatMonthLabel(selectedMonth)}`;
+    if (selectedAccount) {
+      return `No ${tab} transactions for ${accountLabel(selectedAccount)}${monthSuffix}.`;
+    }
+    return selectedMonth === ALL_TIME
+      ? 'No transactions yet.'
+      : `No ${tab} transactions${monthSuffix}.`;
+  }, [selectedAccount, selectedMonth, tab]);
 
   // Flat rows so each day can be introduced by a separator header. The query
   // already orders by `occurred_on`, so each group stays contiguous.
@@ -149,11 +240,7 @@ export default function HistoryScreen() {
           data={rows}
           keyExtractor={(item) => item.key}
           ListEmptyComponent={() => (
-            <ThemedText style={styles.empty}>
-              {selectedMonth === ALL_TIME
-                ? 'No transactions yet.'
-                : `No ${tab} transactions in ${formatMonthLabel(selectedMonth)}.`}
-            </ThemedText>
+            <ThemedText style={styles.empty}>{emptyLabel}</ThemedText>
           )}
           renderItem={({ item }) => {
             if (item.type === 'header') {
@@ -208,6 +295,19 @@ export default function HistoryScreen() {
           }}
           contentContainerStyle={styles.listContent}
         />
+
+        <Pressable
+          onPress={() => setShowAccountPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Filter by account, ${selectedAccountLabel}`}
+          style={({ pressed }) => [styles.accountFilter, pressed && styles.pressed]}>
+          <ThemedText type="smallBold" numberOfLines={1} style={styles.accountFilterName}>
+            {selectedAccountLabel}
+          </ThemedText>
+          <ThemedText type="smallBold" style={styles.accountFilterChevron}>
+            ⌄
+          </ThemedText>
+        </Pressable>
 
         <View style={styles.tabBar}>
           <Pressable
@@ -290,6 +390,73 @@ export default function HistoryScreen() {
           </ThemedView>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={showAccountPicker}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowAccountPicker(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowAccountPicker(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close account filter">
+          <ThemedView
+            type="backgroundElement"
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Filter by account
+              </ThemedText>
+              <View style={styles.archiveToggle}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Show archived
+                </ThemedText>
+                <Switch
+                  value={showArchived}
+                  onValueChange={handleShowArchivedChange}
+                  accessibilityLabel="Show archived accounts"
+                />
+              </View>
+            </View>
+            <FlatList
+              data={[null, ...accountOptions]}
+              keyExtractor={(item) => (item ? String(item.id) : 'all')}
+              renderItem={({ item }) => {
+                const selected =
+                  item === null ? selectedAccountId === null : item.id === selectedAccountId;
+                const label = item ? accountLabel(item) : 'All accounts';
+
+                return (
+                  <Pressable
+                    onPress={() => {
+                      setAccountFilter(item ? item.id : null);
+                      setShowAccountPicker(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={label}>
+                    {({ pressed }) => (
+                      <ThemedView
+                        type={selected ? 'backgroundSelected' : 'backgroundElement'}
+                        style={[styles.monthOption, pressed && styles.pressed]}>
+                        <ThemedText type={selected ? 'smallBold' : 'default'}>{label}</ThemedText>
+                        {selected ? (
+                          <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                            ✓
+                          </ThemedText>
+                        ) : null}
+                      </ThemedView>
+                    )}
+                  </Pressable>
+                );
+              }}
+              contentContainerStyle={styles.modalListContent}
+            />
+          </ThemedView>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -343,6 +510,27 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: '#ffffff',
   },
+  accountFilter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 48,
+    marginHorizontal: Spacing.four,
+    marginBottom: Spacing.two,
+    paddingHorizontal: Spacing.five,
+    borderRadius: Spacing.two,
+    backgroundColor: '#ffffff',
+  },
+  accountFilterName: {
+    flexShrink: 1,
+    textAlign: 'center',
+    color: '#000000',
+  },
+  accountFilterChevron: {
+    position: 'absolute',
+    right: Spacing.three,
+    color: '#000000',
+  },
   monthButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -370,6 +558,19 @@ const styles = StyleSheet.create({
   modalTitle: {
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.two,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.two,
+    gap: Spacing.three,
+  },
+  archiveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   modalListContent: {
     gap: Spacing.two,

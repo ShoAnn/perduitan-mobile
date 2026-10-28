@@ -111,7 +111,9 @@ export default function AddAccountScreen() {
     try {
       const newAccount = await addAccount(db, { name: trimmedName, type, currency });
       await refreshAccounts(db);
-      router.push({ pathname: '/add-income', params: { accountId: String(newAccount.id) } });
+      // Replace this screen so going back from the income form doesn't land on
+      // a half-submitted account form.
+      router.replace({ pathname: '/add-income', params: { accountId: String(newAccount.id) } });
       return;
     } catch (error) {
       console.error('Failed to save account', error);
