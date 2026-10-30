@@ -38,8 +38,25 @@
       ],
       "expo-sqlite",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to choose a receipt photo.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-mlkit-ocr",
+        {
+          "iosEngine": "auto"
+        }
+      ],
+      [
         "expo-build-properties",
         {
+          "ios": {
+            "deploymentTarget": "16.4",
+            "useFrameworks": "static"
+          },
           "android": {
             "buildArchs": [
               "arm64-v8a"

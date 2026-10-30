@@ -1,7 +1,7 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -36,6 +36,7 @@ function formatTimestamp(value: string): string {
 
 export default function TransactionDetailsScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id?: string }>();
   const parsedId = Number(params.id);
@@ -44,30 +45,33 @@ export default function TransactionDetailsScreen() {
   // `undefined` while loading, `null` when the transaction does not exist.
   const [transaction, setTransaction] = useState<TransactionWithNames | null | undefined>(undefined);
 
-  useEffect(() => {
-    if (transactionId === null) {
-      return;
-    }
+  // Refetch whenever the screen regains focus so edits are reflected.
+  useFocusEffect(
+    useCallback(() => {
+      if (transactionId === null) {
+        return;
+      }
 
-    let isActive = true;
+      let isActive = true;
 
-    getTransactionById(db, transactionId)
-      .then((result) => {
-        if (isActive) {
-          setTransaction(result);
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to load the transaction', error);
-        if (isActive) {
-          setTransaction(null);
-        }
-      });
+      getTransactionById(db, transactionId)
+        .then((result) => {
+          if (isActive) {
+            setTransaction(result);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to load the transaction', error);
+          if (isActive) {
+            setTransaction(null);
+          }
+        });
 
-    return () => {
-      isActive = false;
-    };
-  }, [db, transactionId]);
+      return () => {
+        isActive = false;
+      };
+    }, [db, transactionId])
+  );
 
   if (transactionId === null || transaction === null) {
     return (
@@ -102,7 +106,28 @@ export default function TransactionDetailsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: isIncome ? 'Income details' : 'Expense details' }} />
+      <Stack.Screen
+        options={{
+          title: isIncome ? 'Income details' : 'Expense details',
+          headerRight: () => (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/edit-transaction',
+                  params: { id: String(transaction.id) },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Edit transaction"
+              hitSlop={Spacing.two}
+              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+              <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                Edit
+              </ThemedText>
+            </Pressable>
+          ),
+        }}
+      />
       <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
@@ -210,5 +235,12 @@ const styles = StyleSheet.create({
   detailValue: {
     flexShrink: 1,
     textAlign: 'right',
+  },
+  headerButton: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

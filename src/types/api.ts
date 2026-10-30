@@ -37,3 +37,6 @@ export type TransactionCreate = {
   /** Date without a time, formatted `YYYY-MM-DD`. */
   occurred_on: string;
 };
+
+/** Request body for `PUT /transactions/{transactionId}` (`TransactionUpdate` in openapi.yaml). */
+export type TransactionUpdate = TransactionCreate;

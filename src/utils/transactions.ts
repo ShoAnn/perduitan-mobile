@@ -67,6 +67,15 @@ export function parseAmountToCents(value: string): number | null {
   return Math.round(Number(normalized) * 100);
 }
 
+/**
+ * Formats signed cents for the amount field, using the comma decimal
+ * separator the numeric keypad expects. Trailing zero decimals are dropped.
+ */
+export function formatCentsForEditing(amountCents: number): string {
+  const value = (Math.abs(amountCents) / 100).toFixed(2);
+  return value.replace(/\.00$/, '').replace('.', ',');
+}
+
 type ExpenseInput = {
   accountId: number;
   categoryId: number | null;

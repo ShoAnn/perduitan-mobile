@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import type { TransactionCreate } from '@/types/api';
+import type { TransactionCreate, TransactionUpdate } from '@/types/api';
 
 /**
  * Returns the account_id of the most recent transaction on an active account,
@@ -88,4 +88,28 @@ export async function insertTransaction(
   );
 
   return result.lastInsertRowId;
+}
+
+/** Mirrors `PUT /transactions/{transactionId}`. Replaces mutable fields. */
+export async function updateTransaction(
+  db: SQLiteDatabase,
+  id: number,
+  input: TransactionUpdate
+): Promise<void> {
+  const result = await db.runAsync(
+    `UPDATE transactions
+     SET account_id = ?, category_id = ?, amount_cents = ?, description = ?, occurred_on = ?, updated_at = ?
+     WHERE id = ?`,
+    input.account_id,
+    input.category_id ?? null,
+    input.amount_cents,
+    input.description ?? null,
+    input.occurred_on,
+    new Date().toISOString(),
+    id
+  );
+
+  if (result.changes === 0) {
+    throw new Error('Transaction not found');
+  }
 }

@@ -28,11 +28,17 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAccounts } from '@/stores/accounts';
 import { useCategories } from '@/stores/categories';
 import {
+  refreshLastUsedAccountId,
+  useLastUsedAccountId,
+} from '@/stores/last-used-account';
+import {
+  formatCentsForEditing,
   formatDate,
   formatEditableDate,
   parseAmountToCents,
   parseEditableDate,
 } from '@/utils/transactions';
+import { receiptScanUnavailableMessage, scanReceiptFromGallery } from '@/utils/receipt-scan';
 
 type ActivePanel = 'amount' | 'account' | 'category' | null;
 
@@ -43,24 +49,37 @@ function sentenceCase(str: string): string {
 export default function AddIncomeScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    accountId?: string;
+    amount?: string;
+    occurredOn?: string;
+    description?: string;
+    categoryName?: string;
+    scanned?: string;
+  }>();
   const db = useSQLiteContext();
+
+  /** True when the form was prefilled from a receipt scan. */
+  const [scanned, setScanned] = useState(params.scanned === '1');
 
   const accounts = useAccounts(db);
   const categories = useCategories(db);
+  const lastUsedAccountId = useLastUsedAccountId(db);
   const incomeCategories = useMemo(
     () => categories.filter((category) => category.kind === 'income'),
     [categories]
   );
 
-  const [occurredAt, setOccurredAt] = useState(() => new Date());
+  const [occurredAt, setOccurredAt] = useState(
+    () => parseEditableDate(params.occurredOn ?? '') ?? new Date()
+  );
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [dateDraft, setDateDraft] = useState('');
   const [dateError, setDateError] = useState<string | null>(null);
 
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(() => params.amount ?? '');
   const [amountCaret, setAmountCaret] = useState(0);
-  const [activePanel, setActivePanel] = useState<ActivePanel>('amount');
+  const [activePanel, setActivePanel] = useState<ActivePanel>(scanned ? null : 'amount');
   const [amountError, setAmountError] = useState<string | null>(null);
   const initialAccountId = (() => {
     const raw = params.accountId;
@@ -72,25 +91,45 @@ export default function AddIncomeScreen() {
   })();
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(initialAccountId);
   const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(() => params.description ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
 
-  const accountId = selectedAccountId ?? accounts[0]?.id ?? null;
+  const lastUsedAccount =
+    lastUsedAccountId !== null && accounts.some((account) => account.id === lastUsedAccountId)
+      ? lastUsedAccountId
+      : null;
+  const accountId = selectedAccountId ?? lastUsedAccount ?? accounts[0]?.id ?? null;
   const selectedAccount = accounts.find((account) => account.id === accountId);
   const selectedCategory = categories.find((category) => category.id === categoryId);
 
   useEffect(() => {
-    if (incomeCategories.length > 0 && categoryId === null) {
-      const salaryCategory = incomeCategories.find(
-        (c) => c.name.toLowerCase() === 'salary'
+    if (incomeCategories.length === 0 || categoryId !== null) {
+      return;
+    }
+
+    // Prefer the category suggested by a receipt scan when it exists.
+    if (params.categoryName) {
+      const scannedCategory = incomeCategories.find(
+        (category) => category.name.toLowerCase() === params.categoryName?.toLowerCase()
       );
-      if (salaryCategory) {
+      if (scannedCategory) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCategoryId(salaryCategory.id);
+        setCategoryId(scannedCategory.id);
+        return;
       }
     }
-  }, [incomeCategories, categoryId]);
+
+    const salaryCategory = incomeCategories.find(
+      (c) => c.name.toLowerCase() === 'salary'
+    );
+    if (salaryCategory) {
+      setCategoryId(salaryCategory.id);
+    }
+  }, [incomeCategories, categoryId, params.categoryName]);
 
   const startEditingDate = () => {
     setActivePanel(null);
@@ -167,6 +206,75 @@ export default function AddIncomeScreen() {
     router.push('/add-account');
   };
 
+  const handleScanReceipt = async () => {
+    if (isScanning) {
+      return;
+    }
+
+    dismissPanel();
+    setScanError(null);
+    setScanNotice(null);
+    setIsScanning(true);
+
+    try {
+      const result = await scanReceiptFromGallery('income');
+
+      if (result.status === 'canceled') {
+        return;
+      }
+
+      if (result.status === 'unavailable') {
+        setScanError(receiptScanUnavailableMessage(result.reason));
+        return;
+      }
+
+      if (result.status === 'error') {
+        setScanError(result.message);
+        return;
+      }
+
+      const { receipt } = result;
+
+      if (receipt.amountCents !== null) {
+        const nextAmount = formatCentsForEditing(receipt.amountCents);
+        setAmount(nextAmount);
+        setAmountCaret(nextAmount.length);
+        setAmountError(null);
+      }
+
+      if (receipt.occurredOn) {
+        const parsedDate = parseEditableDate(receipt.occurredOn);
+        if (parsedDate) {
+          setOccurredAt(parsedDate);
+          setDateError(null);
+          setIsEditingDate(false);
+        }
+      }
+
+      if (receipt.description) {
+        setDescription(receipt.description);
+      }
+
+      if (receipt.suggestedCategoryName) {
+        const matchedCategory = incomeCategories.find(
+          (category) =>
+            category.name.toLowerCase() === receipt.suggestedCategoryName?.toLowerCase()
+        );
+        if (matchedCategory) {
+          setCategoryId(matchedCategory.id);
+        }
+      }
+
+      setScanned(true);
+
+      if (receipt.warnings.length > 0) {
+        setScanNotice(receipt.warnings[0]);
+      }
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const handleSave = async () => {
     if (isSaving) return;
 
@@ -203,6 +311,9 @@ export default function AddIncomeScreen() {
         description: description.trim() || undefined,
         occurred_on: `${effectiveDate.getFullYear()}-${String(effectiveDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveDate.getDate()).padStart(2, '0')}`,
       });
+      await refreshLastUsedAccountId(db).catch((error: unknown) => {
+        console.error('Failed to refresh the last used account', error);
+      });
     } catch (error) {
       console.error('Failed to save income', error);
       setSaveError('Could not save the income. Please try again.');
@@ -229,6 +340,17 @@ export default function AddIncomeScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
             <View style={styles.form}>
+              {scanned ? (
+                <View
+                  style={[styles.scanBanner, { backgroundColor: theme.backgroundElement }]}
+                  accessibilityRole="alert">
+                  <ThemedText type="smallBold">Filled from a receipt scan</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Check the amount, date, and category before saving.
+                  </ThemedText>
+                </View>
+              ) : null}
+
               <View>
                 <View style={styles.dateRow}>
                   <ThemedText type="smallBold" themeColor="textSecondary">
@@ -269,6 +391,46 @@ export default function AddIncomeScreen() {
                 ) : null}
               </View>
 
+              <Pressable
+                onPress={handleScanReceipt}
+                disabled={isScanning}
+                accessibilityRole="button"
+                accessibilityLabel="Choose a receipt photo"
+                accessibilityState={{ disabled: isScanning, busy: isScanning }}
+                style={({ pressed }) => [
+                  styles.scanButton,
+                  {
+                    backgroundColor: theme.backgroundElement,
+                    borderRadius: Spacing.three,
+                    padding: Spacing.three,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: Spacing.three,
+                    minHeight: 52,
+                    opacity: isScanning ? 0.6 : pressed ? 0.8 : 1,
+                  },
+                ]}>
+                <ThemedText style={{ fontSize: 20 }} themeColor="accent">▣</ThemedText>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="smallBold">Scan receipt</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {isScanning ? 'Reading receipt…' : 'Fill income from a photo'}
+                  </ThemedText>
+                </View>
+              </Pressable>
+
+              {scanError ? (
+                <ThemedText type="small" style={{ color: theme.negative }}>
+                  {scanError}
+                </ThemedText>
+              ) : null}
+
+              {scanNotice ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {scanNotice}
+                </ThemedText>
+              ) : null}
+
               <TextField
                 label="Amount"
                 prefix={selectedAccount?.currency}
@@ -287,7 +449,7 @@ export default function AddIncomeScreen() {
                 }}
                 onFocus={() => setActivePanel('amount')}
                 placeholder="0"
-                autoFocus
+                autoFocus={!scanned}
                 error={amountError ?? undefined}
               />
 
@@ -429,6 +591,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: Spacing.two,
   },
+  scanBanner: {
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
   dateInput: {
     flex: 1,
     fontSize: 16,
@@ -442,5 +609,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
+  },
+  scanButton: {
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    minHeight: 52,
   },
 });

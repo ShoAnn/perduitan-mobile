@@ -30,6 +30,7 @@ export default function RootLayout() {
             <Stack.Screen name="add-account" options={{ title: 'Add account' }} />
             <Stack.Screen name="history" options={{ title: 'History' }} />
             <Stack.Screen name="transaction/[id]" options={{ title: 'Transaction' }} />
+            <Stack.Screen name="edit-transaction" options={{ title: 'Edit transaction' }} />
           </Stack>
         </SQLiteProvider>
       </Suspense>
