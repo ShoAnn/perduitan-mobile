@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Animated, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -12,6 +12,8 @@ export type TextFieldProps = TextInputProps & {
   prefix?: string;
   /** Override the focus highlight; defaults to tracking real input focus. */
   focused?: boolean;
+  /** Fades a highlight border in and out, e.g. after a receipt scan fills the field. */
+  glow?: Animated.Value;
 };
 
 export function TextField({
@@ -21,6 +23,7 @@ export function TextField({
   prefix,
   multiline,
   focused,
+  glow,
   onFocus,
   onBlur,
   style,
@@ -70,6 +73,12 @@ export function TextField({
           ]}
           {...rest}
         />
+        {glow ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.glowBorder, { borderColor: theme.accent, opacity: glow }]}
+          />
+        ) : null}
       </View>
 
       {error ? (
@@ -102,6 +111,15 @@ const styles = StyleSheet.create({
   },
   inputWrapperMultiline: {
     alignItems: 'flex-start',
+  },
+  glowBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 1,
+    borderRadius: Spacing.three,
   },
   input: {
     flex: 1,

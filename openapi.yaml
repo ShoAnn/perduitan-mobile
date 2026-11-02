@@ -318,8 +318,9 @@ paths:
       operationId: deleteCategory
       summary: Delete a category
       description: |
-        Deletes the category. Transactions that referenced it keep existing and
-        have `category_id` set to `null` (`ON DELETE SET NULL`).
+        Soft-deletes the category by archiving it. Transactions that referenced it
+        keep existing and retain their `category_id`; the archived category is
+        hidden from listings. The name becomes reusable by a new category.
       x-implementation-status: implemented
       responses:
         "204":
@@ -654,6 +655,10 @@ components:
           type: string
           format: date-time
           example: "2026-01-15T09:30:00Z"
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+          description: Set when the category is soft-deleted; `null` while active.
 
     CategoryCreate:
       type: object

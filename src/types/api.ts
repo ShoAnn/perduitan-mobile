@@ -17,6 +17,7 @@ export type Category = {
   name: string;
   kind: CategoryKind;
   created_at: string;
+  archived_at: string | null;
 };
 
 /** Request body for `POST /categories` (`CategoryCreate` in openapi.yaml). */
@@ -25,6 +26,9 @@ export type CategoryCreate = {
   name: string;
   kind: CategoryKind;
 };
+
+/** Request body for `PUT /categories/{categoryId}` (`CategoryUpdate` in openapi.yaml). */
+export type CategoryUpdate = CategoryCreate;
 
 /** Request body for `POST /transactions` (`TransactionCreate` in openapi.yaml). */
 export type TransactionCreate = {

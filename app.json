@@ -58,6 +58,7 @@
             "useFrameworks": "static"
           },
           "android": {
+            "extraProguardRules": "-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_** { *; }\n-dontwarn com.google.mlkit.**",
             "buildArchs": [
               "arm64-v8a"
             ],

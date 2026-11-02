@@ -53,6 +53,14 @@ function formatMonthLabel(key: string): string {
   );
 }
 
+/** Compact `YYYY-MM` for the filter pill, for example `Oct 2026`. */
+function formatMonthShort(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(
+    new Date(year, month - 1, 1)
+  );
+}
+
 /** `Today`/`Yesterday` plus the date, otherwise `Mon, Oct 27` (plus year when different). */
 function formatDayLabel(value: string): string {
   const [year, month, day] = value.split('-').map(Number);
@@ -217,24 +225,16 @@ export default function HistoryScreen() {
         options={{
           headerRight: () => (
             <Pressable
-              onPress={() => setShowMonthPicker(true)}
+              onPress={() => router.push('/analytics')}
               accessibilityRole="button"
-              accessibilityLabel={`Filter by month, ${
-                selectedMonth === ALL_TIME ? 'all time' : formatMonthLabel(selectedMonth)
-              }`}
-              hitSlop={8}
-              style={({ pressed }) => [styles.monthButton, pressed && styles.pressed]}>
-              <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                {selectedMonth === ALL_TIME ? 'All time' : formatMonthLabel(selectedMonth)}
-              </ThemedText>
-              <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                ⌄
-              </ThemedText>
+              accessibilityLabel="Analytics"
+              hitSlop={Spacing.two}
+              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+              <ThemedText style={styles.headerIcon}>📊</ThemedText>
             </Pressable>
           ),
         }}
       />
-
       <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <FlatList
           data={rows}
@@ -296,18 +296,43 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.listContent}
         />
 
-        <Pressable
-          onPress={() => setShowAccountPicker(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Filter by account, ${selectedAccountLabel}`}
-          style={({ pressed }) => [styles.accountFilter, pressed && styles.pressed]}>
-          <ThemedText type="smallBold" numberOfLines={1} style={styles.accountFilterName}>
-            {selectedAccountLabel}
-          </ThemedText>
-          <ThemedText type="smallBold" style={styles.accountFilterChevron}>
-            ⌄
-          </ThemedText>
-        </Pressable>
+        <View style={styles.filterRow}>
+          <Pressable
+            onPress={() => setShowMonthPicker(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by month, ${
+              selectedMonth === ALL_TIME ? 'all time' : formatMonthLabel(selectedMonth)
+            }`}
+            style={({ pressed }) => [
+              styles.filterButton,
+              { backgroundColor: theme.backgroundElement },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold" numberOfLines={1} style={styles.filterLabel}>
+              {selectedMonth === ALL_TIME ? 'All time' : formatMonthShort(selectedMonth)}
+            </ThemedText>
+            <ThemedText type="smallBold" style={styles.filterChevron}>
+              ⌄
+            </ThemedText>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowAccountPicker(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by account, ${selectedAccountLabel}`}
+            style={({ pressed }) => [
+              styles.filterButton,
+              { backgroundColor: theme.backgroundElement },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold" numberOfLines={1} style={styles.filterLabel}>
+              {selectedAccountLabel}
+            </ThemedText>
+            <ThemedText type="smallBold" style={styles.filterChevron}>
+              ⌄
+            </ThemedText>
+          </Pressable>
+        </View>
 
         <View style={styles.tabBar}>
           <Pressable
@@ -510,36 +535,41 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: '#ffffff',
   },
-  accountFilter: {
+  filterRow: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.four,
+    marginBottom: Spacing.two,
+    gap: Spacing.two,
+  },
+  filterButton: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 48,
-    marginHorizontal: Spacing.four,
-    marginBottom: Spacing.two,
     paddingHorizontal: Spacing.five,
     borderRadius: Spacing.two,
-    backgroundColor: '#ffffff',
   },
-  accountFilterName: {
+  filterLabel: {
     flexShrink: 1,
     textAlign: 'center',
-    color: '#000000',
   },
-  accountFilterChevron: {
+  filterChevron: {
     position: 'absolute',
     right: Spacing.three,
-    color: '#000000',
-  },
-  monthButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
   },
   pressed: {
     opacity: 0.7,
+  },
+  headerButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIcon: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,

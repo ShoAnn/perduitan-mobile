@@ -12,6 +12,9 @@ import {
   type ReceiptOcrUnavailableReason,
 } from '@/utils/receipt-ocr';
 
+/** Set `EXPO_PUBLIC_DEBUG_RECEIPT_SCAN=1` to log the parsed receipt while testing. */
+const DEBUG_RECEIPT_SCAN = process.env.EXPO_PUBLIC_DEBUG_RECEIPT_SCAN === '1';
+
 export type ReceiptScanResult =
   | { status: 'canceled' }
   | { status: 'success'; receipt: ParsedReceipt }
@@ -54,7 +57,13 @@ export async function scanReceiptFromGallery(kind: ReceiptKind): Promise<Receipt
       return { status: 'unavailable', reason: ocr.reason };
     }
 
-    return { status: 'success', receipt: parseReceiptText(ocr.text, { kind }) };
+    const receipt = parseReceiptText(ocr.text, { kind });
+    if (DEBUG_RECEIPT_SCAN) {
+      console.log('[receipt-scan] raw OCR text:\n' + ocr.text);
+      console.log('[receipt-scan] parsed receipt', receipt);
+    }
+
+    return { status: 'success', receipt };
   } catch (error) {
     console.error('Failed to scan a receipt image', error);
     return { status: 'error', message: receiptOcrErrorMessage(error) };

@@ -108,8 +108,26 @@ const NON_AMOUNT_CONTEXT =
 
 const ITEM_CONTEXT = /\b(?:qty|item|harga|price|unit|pcs|pax|box|pack)\b|\d+\s*[x@]\s*\d+/i;
 
+/**
+ * Rupiah is written glued to the amount (`Rp14.000`), so `\brp\b` never matches
+ * because there is no word boundary between `p` and the following digit.
+ */
+const RUPIAH_HINT = /\brp\.?\s*\d|\bidr\b/i;
+
 const MERCHANT_IGNORE =
-  /\b(?:struk|receipt|invoice|nota|faktur|kwitansi|kasir|cashier|terima\s*kasih|thank\s*you|selamat\s*datang|welcome|jl\.?|jalan|telp|tel|phone|npwp|rt\/rw|kec|kab|kota|provinsi|transfer|pembayaran|payment|bukti|tanda\s*terima|detail|rincian)\b/i;
+  /\b(?:struk|receipt|invoice|nota|faktur|kwitansi|kasir|cashier|terima\s*kasih|thank\s*you|selamat\s*datang|welcome|jl\.?|jalan|telp|tel|phone|npwp|rt\/rw|kec|kab|kota|provinsi|transfer|pembayaran|payment|bukti|tanda\s*terima|detail|rincian|menyimpan|hemat|cashback|saldo|sisa|kembalian)\b/i;
+
+/**
+ * Wallet and payment-app brands rendered as a logo line (for example the `gopay`
+ * on a GoPay receipt). Skipped in favour of a real business name, but kept as a
+ * last resort so a brand-only receipt still yields something.
+ */
+const PAYMENT_APP_BRAND =
+  /\b(?:gopay|gojek|go-pay|ovo|dana|shopeepay|shopee\s*pay|linkaja|qris|flip|jenius|seabank)\b/i;
+
+/** Money, date, time, and phone/account numbers disqualify a merchant line. */
+const MERCHANT_NUMBER_CONTEXT =
+  /\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{1,4}\s*[/.-]\s*\d{1,2}(?:\s*[/.-]\s*\d{1,4})?\b|\b\d{4,}\b|\b\d{1,2}[:.]\d{2}(?::\d{2})?\b/;
 
 const EXPENSE_CATEGORY_RULES: { name: string; keywords: RegExp[] }[] = [
   {
@@ -251,14 +269,52 @@ type ParsedNumber = {
 };
 
 /**
+ * Resolves the group after a single separator into a normalized numeric string.
+ * Rupiah amounts have no meaningful fractional part, so a short trailing group
+ * is a thousands group that OCR shortened (`14.0`, `14.00`) or lengthened
+ * (`14.0000`) rather than a decimal.
+ */
+function resolveSeparatorGroup(
+  integer: string,
+  fraction: string,
+  rupiah: boolean
+): { normalized: string; hasDecimal: boolean } {
+  if (rupiah) {
+    if (fraction.length > 0 && fraction.length <= 2) {
+      return { normalized: `${integer}${fraction.padEnd(3, '0')}`, hasDecimal: false };
+    }
+    if (fraction.length >= 4 && /^0+$/.test(fraction)) {
+      return { normalized: `${integer}000`, hasDecimal: false };
+    }
+    return { normalized: `${integer}${fraction}`, hasDecimal: false };
+  }
+
+  if (fraction.length > 0 && fraction.length <= 2) {
+    return { normalized: `${integer}.${fraction}`, hasDecimal: true };
+  }
+
+  return { normalized: `${integer}${fraction}`, hasDecimal: false };
+}
+
+/**
  * Parses a single amount token using the separator conventions found on
  * Indonesian and English receipts:
  *
  * - `45.500` / `45,500` -> 45,500 (thousands)
  * - `1.234.567,89` / `1,234,567.89` -> 1,234,567.89
  * - `12,50` / `12.50` -> 12.50
+ *
+ * A decimal part is at most two digits; a longer group is treated as
+ * thousands so a garbled `14.0000` never collapses back to `14`.
+ *
+ * Pass `{ rupiah: true }` for receipts that use Rupiah, where a trailing group
+ * is always a thousands group: `14.0` / `14.00` / `14.0000` all read as 14,000.
  */
-export function parseAmountToken(token: string): ParsedNumber | null {
+export function parseAmountToken(
+  token: string,
+  options: { rupiah?: boolean } = {}
+): ParsedNumber | null {
+  const { rupiah = false } = options;
   let raw = token.replace(/[^\d.,]/g, '');
   raw = raw.replace(/[.,]+$/, '');
 
@@ -285,12 +341,9 @@ export function parseAmountToken(token: string): ParsedNumber | null {
       normalized = parts.join('');
     } else {
       const [integer, fraction] = parts;
-      if (fraction.length === 3) {
-        normalized = `${integer}${fraction}`;
-      } else {
-        normalized = `${integer}.${fraction}`;
-        hasDecimal = fraction.length > 0 && fraction.length <= 2;
-      }
+      const resolved = resolveSeparatorGroup(integer, fraction, rupiah);
+      normalized = resolved.normalized;
+      hasDecimal = resolved.hasDecimal;
     }
   } else if (lastComma !== -1) {
     const parts = raw.split(',');
@@ -298,12 +351,9 @@ export function parseAmountToken(token: string): ParsedNumber | null {
       normalized = parts.join('');
     } else {
       const [integer, fraction] = parts;
-      if (fraction.length === 3) {
-        normalized = `${integer}${fraction}`;
-      } else {
-        normalized = `${integer}.${fraction}`;
-        hasDecimal = fraction.length > 0 && fraction.length <= 2;
-      }
+      const resolved = resolveSeparatorGroup(integer, fraction, rupiah);
+      normalized = resolved.normalized;
+      hasDecimal = resolved.hasDecimal;
     }
   } else {
     normalized = raw;
@@ -326,8 +376,18 @@ export function parseAmountToken(token: string): ParsedNumber | null {
  * `allowTimeLikeAmount` is set for lines that contain a total keyword, where
  * `14.32` is far more likely to be $14.32 than a time.
  */
-function collectAmountTokens(line: string, allowTimeLikeAmount = false): ParsedNumber[] {
-  const normalizedSpaces = line.replace(/(\d)\s+(?=\d)/g, '$1');
+function collectAmountTokens(
+  line: string,
+  allowTimeLikeAmount = false,
+  rupiah = false
+): ParsedNumber[] {
+  // OCR often splits a grouped number around its separator (`15. 000`,
+  // `15 .000`) or between digit runs (`15 000`); rejoin them so the whole
+  // amount is read as a single token instead of just its integer part.
+  const normalizedSpaces = line
+    .replace(/([.,])\s+(?=\d)/g, '$1')
+    .replace(/(\d)\s+(?=[.,]\d)/g, '$1')
+    .replace(/(\d)\s+(?=\d)/g, '$1');
   const masked = maskNonAmountText(normalizedSpaces);
   const tokenPattern = /\d[\d.,]*\d|\d/g;
   const found: ParsedNumber[] = [];
@@ -349,13 +409,15 @@ function collectAmountTokens(line: string, allowTimeLikeAmount = false): ParsedN
       continue;
     }
 
-    const parsed = parseAmountToken(raw);
+    const parsed = parseAmountToken(raw, { rupiah });
     if (!parsed) {
       continue;
     }
 
     // OCR often splits a time into `08.30`; reject those outside total lines.
-    if (!allowTimeLikeAmount && /^\d{1,2}[.,]\d{2}$/.test(raw)) {
+    // A Rupiah group of zeros (`14.00`) is a thousands group, not a clock time.
+    const isRupiahThousandsGroup = rupiah && /^\d{1,2}[.,]0+$/.test(raw);
+    if (!allowTimeLikeAmount && !isRupiahThousandsGroup && /^\d{1,2}[.,]\d{2}$/.test(raw)) {
       const [hours, minutes] = raw.split(/[.,]/).map(Number);
       if (hours <= 23 && minutes <= 59) {
         continue;
@@ -398,18 +460,18 @@ function extractAmount(
   text: string
 ): { cents: number | null; confidence: ParseConfidence } {
   const lines = splitLines(text);
-  const usesRupiah = /\b(?:rp|idr)\b/i.test(text);
+  const usesRupiah = RUPIAH_HINT.test(text);
   const usesOtherCurrency = /[$€£]|\b(?:usd|eur|gbp|sgd|myr)\b/i.test(text);
   const candidates: AmountCandidate[] = [];
 
   lines.forEach((line, lineIndex) => {
     const keywordScore = totalKeywordScore(line);
     const allowTimeLikeAmount = keywordScore > 0;
-    let tokens = collectAmountTokens(line, allowTimeLikeAmount);
+    let tokens = collectAmountTokens(line, allowTimeLikeAmount, usesRupiah);
 
     // Receipts frequently split `TOTAL` and the amount onto separate lines.
     if (tokens.length === 0 && keywordScore > 0 && lineIndex + 1 < lines.length) {
-      tokens = collectAmountTokens(lines[lineIndex + 1], true);
+      tokens = collectAmountTokens(lines[lineIndex + 1], true, usesRupiah);
     }
 
     if (tokens.length === 0) {
@@ -595,34 +657,45 @@ function extractDateInfo(
   return { value: toDateString(best.date), confidence: best.confidence };
 }
 
-function extractMerchant(lines: string[]): string | null {
-  for (const rawLine of lines.slice(0, 10)) {
-    const line = rawLine.replace(/\s+/g, ' ').trim();
-    if (line.length < 3 || line.length > 48) {
-      continue;
-    }
-
-    if (!/[a-z]{3}/i.test(line)) {
-      continue;
-    }
-
-    if (/\d{2,}/.test(line)) {
-      continue;
-    }
-
-    if (MERCHANT_IGNORE.test(line)) {
-      continue;
-    }
-
-    const letterCount = (line.match(/[a-z]/gi) ?? []).length;
-    if (letterCount / line.length < 0.5) {
-      continue;
-    }
-
-    return toTitleCase(line);
+function isMerchantCandidate(line: string): boolean {
+  if (line.length < 3 || line.length > 48) {
+    return false;
   }
 
-  return null;
+  if (!/[a-z]{3}/i.test(line)) {
+    return false;
+  }
+
+  // Reject money, dates, and phone numbers, but keep business names that merely
+  // contain a branch number such as `WARTEG PESONA 21`.
+  if (MERCHANT_NUMBER_CONTEXT.test(line)) {
+    return false;
+  }
+
+  if (MERCHANT_IGNORE.test(line)) {
+    return false;
+  }
+
+  const letterCount = (line.match(/[a-z]/gi) ?? []).length;
+  return letterCount / line.length >= 0.5;
+}
+
+function extractMerchantInfo(lines: string[]): {
+  merchant: string | null;
+  service: string | null;
+} {
+  const window = lines.slice(0, 10).map((raw) => raw.replace(/\s+/g, ' ').trim());
+
+  // The wallet/app brand line (`gopay`) names the service, while the first
+  // other business-like line names the merchant. Both are kept so the
+  // description can read `Gopay - Warteg Pesona 21`.
+  const service = window.find((line) => PAYMENT_APP_BRAND.test(line) && isMerchantCandidate(line));
+  const merchant = window.find((line) => !PAYMENT_APP_BRAND.test(line) && isMerchantCandidate(line));
+
+  return {
+    merchant: merchant ? toTitleCase(merchant) : null,
+    service: service ? toTitleCase(service) : null,
+  };
 }
 
 function detectKind(text: string): ReceiptKind {
@@ -673,7 +746,12 @@ export function parseReceiptText(
   const kind = options.kind ?? detectKind(text);
   const amount = extractAmount(text);
   const date = extractDateInfo(text, today);
-  const merchant = extractMerchant(splitLines(text));
+  const { merchant, service } = extractMerchantInfo(splitLines(text));
+  const description = service
+    ? merchant
+      ? `${service} - ${merchant}`
+      : service
+    : merchant;
   const suggestedCategoryName = suggestCategory(text, kind);
   const warnings: string[] = [];
 
@@ -689,7 +767,7 @@ export function parseReceiptText(
     warnings.push('The receipt date may be ambiguous. Check it carefully.');
   }
 
-  if (merchant === null) {
+  if (description === null) {
     warnings.push('Could not find the merchant name.');
   }
 
@@ -700,7 +778,7 @@ export function parseReceiptText(
     occurredOn: date.value,
     dateConfidence: date.confidence,
     merchant,
-    description: merchant,
+    description,
     suggestedCategoryName,
     warnings,
     rawText: text,

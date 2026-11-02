@@ -4,7 +4,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 export const DATABASE_NAME = 'perduitan.db';
 
 /** Bump this and add a matching block in `migrateDbIfNeeded` for every change. */
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 /**
  * Creates the schema and seeds the starter accounts/categories on first launch.
@@ -15,11 +15,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON');
 
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  let currentVersion = result?.user_version ?? 0;
-
-  if (currentVersion >= DATABASE_VERSION) {
-    return;
-  }
+  const currentVersion = result?.user_version ?? 0;
 
   if (currentVersion === 0) {
     await db.withExclusiveTransactionAsync(async (txn) => {
@@ -97,12 +93,51 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
         );
       }
 
-      // Record the version inside the transaction so a half-applied migration
-      // can never be mistaken for a complete one.
-      await txn.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      // Record the version this block upgrades to (not DATABASE_VERSION) so a
+      // half-applied migration can never be mistaken for a complete one.
+      await txn.execAsync('PRAGMA user_version = 1');
     });
+  }
 
-    currentVersion = 1;
+  const categoryColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(categories)'
+  );
+  const hasArchivedAt = categoryColumns.some((column) => column.name === 'archived_at');
+
+  if (!hasArchivedAt) {
+    // Add `archived_at` for soft deletes and drop the table-level UNIQUE on name
+    // (so a name can be reused after a category is archived). Guarded by schema
+    // state rather than the version number, so a database that was mis-stamped
+    // to a later version is still repaired. SQLite cannot ALTER a constraint
+    // away, hence the table swap. Foreign keys must be toggled outside a
+    // transaction.
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    try {
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        await txn.execAsync(`
+          CREATE TABLE categories_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE,
+            kind TEXT NOT NULL CHECK (kind IN ('income', 'expense')),
+            created_at TEXT NOT NULL,
+            archived_at TEXT
+          );
+
+          INSERT INTO categories_new (id, name, kind, created_at, archived_at)
+            SELECT id, name, kind, created_at, NULL FROM categories;
+
+          DROP TABLE categories;
+          ALTER TABLE categories_new RENAME TO categories;
+
+          CREATE UNIQUE INDEX categories_active_name_unique
+            ON categories (name COLLATE NOCASE) WHERE archived_at IS NULL;
+        `);
+
+        await txn.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      });
+    } finally {
+      await db.execAsync('PRAGMA foreign_keys = ON');
+    }
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

@@ -2,6 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategorySelectField } from '@/components/form/category-select-field';
 import {
   NumericKeypad,
   type NumericKeypadChange,
@@ -62,6 +65,8 @@ export default function AddExpenseScreen() {
 
   /** True when the form was prefilled from a receipt scan. */
   const [scanned, setScanned] = useState(params.scanned === '1');
+  /** Fades the fields a scan fills in and out of a highlight. */
+  const [scanGlow] = useState(() => new Animated.Value(params.scanned === '1' ? 1 : 0));
 
   const accounts = useAccounts(db);
   const categories = useCategories(db);
@@ -125,6 +130,56 @@ export default function AddExpenseScreen() {
     }
   }, [expenseCategories, categoryId, params.categoryName]);
 
+  // Drop a selection whose category was archived from the manage screen, so a
+  // stale id can never be submitted.
+  useEffect(() => {
+    if (categoryId === null) {
+      return;
+    }
+    if (!categories.some((category) => category.id === categoryId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCategoryId(null);
+    }
+  }, [categories, categoryId]);
+
+  /** Fades a scan highlight in, holds briefly, then fades it out. */
+  const playScanGlow = () => {
+    scanGlow.stopAnimation();
+    scanGlow.setValue(0);
+    Animated.sequence([
+      Animated.timing(scanGlow, {
+        toValue: 1,
+        duration: 150,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.delay(250),
+      Animated.timing(scanGlow, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Fade out the highlight that starts on mount for a scan-prefilled form.
+  useEffect(() => {
+    if (params.scanned !== '1') {
+      return;
+    }
+
+    Animated.sequence([
+      Animated.delay(300),
+      Animated.timing(scanGlow, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [params.scanned, scanGlow]);
+
   const startEditingDate = () => {
     setActivePanel(null);
     setDateDraft(formatEditableDate(occurredAt));
@@ -168,6 +223,9 @@ export default function AddExpenseScreen() {
   };
 
   const submitAmount = () => {
+    // Release the amount input first, otherwise it keeps focus while its
+    // keypad is hidden and tapping it no longer reopens the keypad.
+    Keyboard.dismiss();
     // Advance focus to the next select input.
     setActivePanel('account');
   };
@@ -197,6 +255,12 @@ export default function AddExpenseScreen() {
     setActivePanel(null);
     Keyboard.dismiss();
     router.push('/new-category');
+  };
+
+  const handleManageCategories = () => {
+    setActivePanel(null);
+    Keyboard.dismiss();
+    router.push('/manage-categories');
   };
 
   const handleAddAccount = () => {
@@ -265,6 +329,7 @@ export default function AddExpenseScreen() {
       }
 
       setScanned(true);
+      playScanGlow();
 
       if (receipt.warnings.length > 0) {
         setScanNotice(receipt.warnings[0]);
@@ -348,19 +413,12 @@ export default function AddExpenseScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
             <View style={styles.form}>
-              {scanned ? (
-                <View
-                  style={[styles.scanBanner, { backgroundColor: theme.backgroundElement }]}
-                  accessibilityRole="alert">
-                  <ThemedText type="smallBold">Filled from a receipt scan</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Check the amount, date, and category before saving.
-                  </ThemedText>
-                </View>
-              ) : null}
-
               <View>
                 <View style={styles.dateRow}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[styles.dateGlow, { borderColor: theme.accent, opacity: scanGlow }]}
+                  />
                   <ThemedText type="smallBold" themeColor="textSecondary">
                     Date
                   </ThemedText>
@@ -446,6 +504,7 @@ export default function AddExpenseScreen() {
                 prefix={selectedAccount?.currency}
                 value={amount}
                 focused={activePanel === 'amount'}
+                glow={scanGlow}
                 inputMode="none"
                 contextMenuHidden
                 caretHidden={activePanel !== 'amount'}
@@ -467,12 +526,12 @@ export default function AddExpenseScreen() {
                 open={activePanel === 'account'}
               />
 
-              <SelectField
-                label="Category"
+              <CategorySelectField
                 value={selectedCategory ? sentenceCase(selectedCategory.name) : null}
-                placeholder="Select category"
                 onPress={openCategoryPicker}
                 open={activePanel === 'category'}
+                glow={scanGlow}
+                onManagePress={handleManageCategories}
               />
 
               <TextField
@@ -482,6 +541,7 @@ export default function AddExpenseScreen() {
                   setDescription(value);
                 }}
                 onFocus={() => setActivePanel(null)}
+                glow={scanGlow}
                 placeholder="Weekly grocery run"
                 placeholderTextColor={`${theme.textSecondary}B3`}
                 multiline
@@ -597,10 +657,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: Spacing.two,
   },
-  scanBanner: {
+  dateGlow: {
+    position: 'absolute',
+    top: -Spacing.one,
+    left: -Spacing.one,
+    right: -Spacing.one,
+    bottom: -Spacing.one,
+    borderWidth: 1,
     borderRadius: Spacing.three,
-    padding: Spacing.three,
-    gap: Spacing.one,
   },
   dateInput: {
     flex: 1,

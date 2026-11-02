@@ -19,12 +19,34 @@ describe('parseAmountToken', () => {
     ['12,50', 1250],
     ['12.50', 1250],
     ['Rp 15.000', 1500000],
+    ['14.000', 1400000],
+    ['14.0000', 14000000],
+    ['1.2345', 1234500],
   ])('parses %s as %i cents', (input, cents) => {
     expect(parseAmountToken(input)?.cents).toBe(cents);
   });
 
   it('returns null for text with no number', () => {
     expect(parseAmountToken('Total')).toBeNull();
+  });
+});
+
+describe('parseAmountToken with Rupiah', () => {
+  it.each([
+    ['14.0', 1400000],
+    ['14,0', 1400000],
+    ['14.00', 1400000],
+    ['14.000', 1400000],
+    ['14.0000', 1400000],
+    ['45.500', 4550000],
+    ['14.500', 1450000],
+  ])('reads %s as a thousands group (%i cents)', (input, cents) => {
+    expect(parseAmountToken(input, { rupiah: true })?.cents).toBe(cents);
+  });
+
+  it('keeps the decimal reading when not Rupiah', () => {
+    expect(parseAmountToken('12,50')?.cents).toBe(1250);
+    expect(parseAmountToken('14.0000')?.cents).toBe(14000000);
   });
 });
 
@@ -114,6 +136,62 @@ describe('parseReceiptText', () => {
     );
 
     expect(receipt.amountCents).toBe(2500000);
+  });
+
+  it('rejoins a thousands separator split by OCR whitespace', () => {
+    for (const line of ['TOTAL BAYAR 15. 000', 'TOTAL BAYAR 15 .000', 'TOTAL BAYAR 15 . 000']) {
+      const receipt = parse(['TOKO MAJU', line, '21/10/2026'].join('\n'));
+      expect(receipt.amountCents).toBe(1500000);
+    }
+  });
+
+  it('rejoins whitespace around several group separators', () => {
+    const receipt = parse(['TOKO MAJU', 'GRAND TOTAL 1 . 234 . 567', '21/10/2026'].join('\n'));
+
+    expect(receipt.amountCents).toBe(123456700);
+  });
+
+  it('reads the prominent amount and not a cashback figure', () => {
+    const receipt = parse(
+      ['gopay', 'Rp14.000', 'WARTEG PESONA 21, TJ PRIO', 'Anda menyimpan 14'].join('\n')
+    );
+
+    expect(receipt.amountCents).toBe(1400000);
+  });
+
+  it.each(['Rp14.000', 'Rp14.0', 'Rp14.00', 'Rp14,0', 'Rp14.0000'])(
+    'reads the GoPay amount even when OCR degrades it to %s',
+    (amountLine) => {
+      const receipt = parse(
+        ['gopay', amountLine, 'WARTEG PESONA 21, TJ PRIO', 'Anda menyimpan 14'].join('\n')
+      );
+
+      expect(receipt.amountCents).toBe(1400000);
+    }
+  );
+
+  it('keeps the wallet brand in the description alongside the merchant', () => {
+    const receipt = parse(
+      ['gopay', 'Rp14.000', 'WARTEG PESONA 21, TJ PRIO', 'Anda menyimpan 14'].join('\n')
+    );
+
+    expect(receipt.merchant).toBe('Warteg Pesona 21, TJ PRIO');
+    expect(receipt.description).toBe('Gopay - Warteg Pesona 21, TJ PRIO');
+  });
+
+  it('keeps a business name that contains a branch number', () => {
+    const receipt = parse(
+      ['Rp14.000', 'WARTEG PESONA 21, TJ PRIO', 'Anda menyimpan 14'].join('\n')
+    );
+
+    expect(receipt.merchant).toBe('Warteg Pesona 21, TJ PRIO');
+    expect(receipt.description).toBe('Warteg Pesona 21, TJ PRIO');
+  });
+
+  it('does not treat a savings or cashback line as the merchant', () => {
+    const receipt = parse(['Rp14.000', 'Anda menyimpan 14'].join('\n'));
+
+    expect(receipt.merchant).toBeNull();
   });
 
   it('does not treat a time as an amount outside total lines', () => {

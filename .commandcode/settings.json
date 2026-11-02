@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npx tsc --noEmit)",
+      "Shell(npx expo lint)",
+      "Shell(sqlite3:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

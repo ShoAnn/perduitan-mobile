@@ -1,8 +1,13 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { useEffect, useSyncExternalStore } from 'react';
 
-import { insertCategory, listCategories } from '@/db/categories';
-import type { Category, CategoryCreate } from '@/types/api';
+import {
+  archiveCategory as archiveCategoryQuery,
+  insertCategory,
+  listCategories,
+  updateCategory as updateCategoryQuery,
+} from '@/db/categories';
+import type { Category, CategoryCreate, CategoryUpdate } from '@/types/api';
 
 /**
  * Shared cache of the categories stored in SQLite. Screens subscribe through
@@ -52,10 +57,12 @@ function normalizeName(name: string) {
   return name.trim().toLocaleLowerCase();
 }
 
-/** Whether another category already uses this name (case-insensitive). */
-export function hasCategoryName(name: string): boolean {
+/** Whether another active category already uses this name (case-insensitive). */
+export function hasCategoryName(name: string, excludeId?: number): boolean {
   const normalized = normalizeName(name);
-  return categories.some((category) => normalizeName(category.name) === normalized);
+  return categories.some(
+    (category) => category.id !== excludeId && normalizeName(category.name) === normalized
+  );
 }
 
 /**
@@ -69,6 +76,29 @@ export async function addCategory(
   const category = await insertCategory(db, input);
   await refreshCategories(db);
   return category;
+}
+
+/**
+ * Renames/re-kinds a category and refreshes the cache. Throws when the new name
+ * is already taken by another active category.
+ */
+export async function updateCategory(
+  db: SQLiteDatabase,
+  id: number,
+  input: CategoryUpdate
+): Promise<Category> {
+  const category = await updateCategoryQuery(db, id, input);
+  await refreshCategories(db);
+  return category;
+}
+
+/**
+ * Soft-deletes a category (stamps `archived_at`) and refreshes the cache.
+ * Transactions that reference it keep their `category_id`.
+ */
+export async function archiveCategory(db: SQLiteDatabase, id: number): Promise<void> {
+  await archiveCategoryQuery(db, id);
+  await refreshCategories(db);
 }
 
 /** Subscribes to the stored categories, loading them on first use. */

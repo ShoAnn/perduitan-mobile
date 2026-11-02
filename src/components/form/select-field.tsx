@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -13,7 +14,11 @@ type SelectFieldProps = {
   onPress: () => void;
   /** Whether the option picker for this field is currently open. */
   open?: boolean;
+  /** Fades a highlight border in and out, e.g. after a receipt scan fills the field. */
+  glow?: Animated.Value;
   hint?: string;
+  /** Optional control rendered to the right of the input, sharing its row. */
+  trailing?: ReactNode;
 };
 
 /** A read-only select input: one centered block with a chevron on the right. */
@@ -23,7 +28,9 @@ export function SelectField({
   placeholder = 'Select an option',
   onPress,
   open = false,
+  glow,
   hint,
+  trailing,
 }: SelectFieldProps) {
   const theme = useTheme();
   const hasValue = value != null && value.trim().length > 0;
@@ -34,27 +41,37 @@ export function SelectField({
         {label}
       </ThemedText>
 
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${hasValue ? value : placeholder}`}
-        accessibilityState={{ expanded: open }}
-        style={({ pressed }) => [
-          styles.trigger,
-          {
-            backgroundColor: theme.backgroundElement,
-            borderColor: open ? theme.accent : 'transparent',
-          },
-          pressed && styles.pressed,
-        ]}>
-        <View style={styles.valueRow}>
-          <ThemedText
-            style={[styles.value, { color: hasValue ? theme.text : theme.textSecondary }]}>
-            {hasValue ? value : placeholder}
-          </ThemedText>
-        </View>
-        <ThemedText style={[styles.chevron, { color: theme.textSecondary }]}>▾</ThemedText>
-      </Pressable>
+      <View style={styles.row}>
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${hasValue ? value : placeholder}`}
+          accessibilityState={{ expanded: open }}
+          style={({ pressed }) => [
+            styles.trigger,
+            {
+              backgroundColor: theme.backgroundElement,
+              borderColor: open ? theme.accent : 'transparent',
+            },
+            pressed && styles.pressed,
+          ]}>
+          <View style={styles.valueRow}>
+            <ThemedText
+              style={[styles.value, { color: hasValue ? theme.text : theme.textSecondary }]}>
+              {hasValue ? value : placeholder}
+            </ThemedText>
+          </View>
+          <ThemedText style={[styles.chevron, { color: theme.textSecondary }]}>▾</ThemedText>
+          {glow ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.glowBorder, { borderColor: theme.accent, opacity: glow }]}
+            />
+          ) : null}
+        </Pressable>
+
+        {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
+      </View>
 
       {hint ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -69,7 +86,12 @@ const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
   },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
   trigger: {
+    flex: 1,
     minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,6 +100,18 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  glowBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 1,
+    borderRadius: Spacing.three,
+  },
+  trailing: {
+    width: '20%',
   },
   valueRow: {
     flex: 1,
