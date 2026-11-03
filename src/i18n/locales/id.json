@@ -1,0 +1,219 @@
+{
+  "app": {
+    "name": "Perduitan"
+  },
+  "common": {
+    "save": "Simpan",
+    "saving": "Menyimpan…",
+    "saveChanges": "Simpan perubahan",
+    "cancel": "Batal",
+    "add": "Tambah",
+    "adding": "Menambah…",
+    "selectOption": "Pilih opsi",
+    "none": "Tidak ada",
+    "done": "Selesai",
+    "edit": "Ubah",
+    "delete": "Hapus",
+    "deleting": "Menghapus…",
+    "confirmDelete": "Konfirmasi hapus?",
+    "tapToHide": "Ketuk untuk menyembunyikan",
+    "loading": "Memuat…",
+    "archivedSuffix": "(diarsipkan)",
+    "uncategorized": "Tanpa kategori"
+  },
+  "navigation": {
+    "settings": "Pengaturan",
+    "addIncome": "Tambah pemasukan",
+    "addExpense": "Tambah pengeluaran",
+    "newCategory": "Kategori baru",
+    "categories": "Kategori",
+    "editAccount": "Ubah akun",
+    "addAccount": "Tambah akun",
+    "history": "Riwayat",
+    "analytics": "Analitik",
+    "transaction": "Transaksi",
+    "editTransaction": "Ubah transaksi",
+    "editIncome": "Ubah pemasukan",
+    "editExpense": "Ubah pengeluaran",
+    "incomeDetails": "Detail pemasukan",
+    "expenseDetails": "Detail pengeluaran"
+  },
+  "home": {
+    "addIncome": "Tambah pemasukan",
+    "addExpense": "Tambah pengeluaran",
+    "history": "Riwayat",
+    "addAccount": "Tambah akun",
+    "noAccounts": "Anda belum menambahkan akun apa pun",
+    "lastUsedAccount": "Akun terakhir digunakan",
+    "pressBackToExit": "Tekan kembali lagi untuk keluar",
+    "closeAccounts": "Tutup daftar akun",
+    "editAccountAccessibility": "Ubah akun {{name}}",
+    "deleteAccountAccessibility": "Hapus akun {{name}}",
+    "confirmDeleteAccountAccessibility": "Konfirmasi hapus akun {{name}}"
+  },
+  "forms": {
+    "date": "Tanggal",
+    "amount": "Jumlah",
+    "account": "Akun",
+    "category": "Kategori",
+    "description": "Deskripsi",
+    "name": "Nama",
+    "type": "Jenis",
+    "currency": "Mata uang",
+    "kind": "Golongan"
+  },
+  "pickers": {
+    "selectAmount": "Pilih jumlah",
+    "selectAccount": "Pilih akun",
+    "selectCategory": "Pilih kategori",
+    "selectType": "Pilih jenis",
+    "selectCurrency": "Pilih mata uang",
+    "selectKind": "Pilih golongan"
+  },
+  "buttons": {
+    "saveIncome": "Simpan pemasukan",
+    "saveExpense": "Simpan pengeluaran",
+    "saveAccount": "Simpan akun",
+    "addAccount": "Tambah akun",
+    "addCategory": "Tambah kategori",
+    "saveCategory": "Simpan kategori"
+  },
+  "placeholders": {
+    "amount": "0",
+    "date": "YYYY-MM-DD",
+    "accountName": "Tabungan Harian",
+    "categoryName": "Kopi",
+    "incomeDescription": "Gaji Agustus termasuk bonus...",
+    "expenseDescription": "Belanja mingguan"
+  },
+  "hints": {
+    "kind": "Digunakan untuk mengelompokkan kategori pada formulir transaksi.",
+    "tapToEditDate": "Ketuk untuk mengubah tanggal"
+  },
+  "accountTypes": {
+    "checking": "Giro",
+    "savings": "Tabungan",
+    "credit_card": "Kartu kredit",
+    "cash": "Tunai",
+    "investment": "Investasi"
+  },
+  "kinds": {
+    "expense": "Pengeluaran",
+    "income": "Pemasukan"
+  },
+  "keypad": {
+    "backspace": "Hapus",
+    "decimalComma": "Koma desimal",
+    "moveCursorLeft": "Geser kursor ke kiri",
+    "moveCursorRight": "Geser kursor ke kanan",
+    "done": "Selesai"
+  },
+  "categoryEditor": {
+    "title": "Ubah kategori",
+    "editAccessibility": "Ubah {{name}}",
+    "deleteAccessibility": "Hapus {{name}}",
+    "confirmDeleteAccessibility": "Konfirmasi hapus {{name}}",
+    "cancelDeleteAccessibility": "Batal hapus {{name}}",
+    "transactionCount_other": "{{count}} transaksi akan tetap memakai kategori ini.",
+    "noTransactions": "Tidak ada transaksi yang memakai kategori ini.",
+    "empty": "Belum ada kategori. Tambahkan di bawah."
+  },
+  "history": {
+    "expense": "Pengeluaran",
+    "income": "Pemasukan",
+    "allTime": "Sepanjang waktu",
+    "allAccounts": "Semua akun",
+    "showArchived": "Tampilkan yang diarsipkan",
+    "showArchivedAccessibility": "Tampilkan akun yang diarsipkan",
+    "filterByMonth": "Filter berdasarkan bulan",
+    "filterByMonthAccessibility": "Filter berdasarkan bulan, {{value}}",
+    "filterByAccount": "Filter berdasarkan akun",
+    "filterByAccountAccessibility": "Filter berdasarkan akun, {{value}}",
+    "closeMonthFilter": "Tutup filter bulan",
+    "closeAccountFilter": "Tutup filter akun",
+    "today": "Hari ini",
+    "yesterday": "Kemarin",
+    "noTransactions": "Belum ada transaksi.",
+    "noKindTransactions": "Belum ada transaksi {{kind}}.",
+    "noKindTransactionsIn": "Belum ada transaksi {{kind}} pada {{month}}.",
+    "noAccountTransactions": "Belum ada transaksi {{kind}} untuk {{account}}.",
+    "noAccountTransactionsIn": "Belum ada transaksi {{kind}} untuk {{account}} pada {{month}}.",
+    "rowAccessibility": "{{category}}, {{kind}}"
+  },
+  "transaction": {
+    "type": "Jenis",
+    "account": "Akun",
+    "category": "Kategori",
+    "date": "Tanggal",
+    "added": "Ditambahkan",
+    "description": "Deskripsi",
+    "none": "Tidak ada",
+    "income": "Pemasukan",
+    "expense": "Pengeluaran",
+    "unknownAccount": "Akun tidak dikenal",
+    "editAccessibility": "Ubah transaksi",
+    "notFound": "Transaksi ini tidak dapat ditemukan."
+  },
+  "scan": {
+    "scanReceipt": "Pindai struk",
+    "readingReceipt": "Membaca struk…",
+    "fillIncome": "Isi pemasukan dari foto",
+    "fillExpense": "Isi pengeluaran dari foto",
+    "chooseAccessibility": "Pilih foto struk"
+  },
+  "errors": {
+    "amountRequired": "Masukkan jumlah lebih dari 0.",
+    "accountRequired": "Pilih akun sebelum menyimpan.",
+    "dateFormat": "Gunakan format YYYY-MM-DD, misalnya 2026-10-23.",
+    "accountNameRequired": "Masukkan nama akun.",
+    "categoryNameRequired": "Masukkan nama kategori.",
+    "categoryExists": "Kategori dengan nama ini sudah ada.",
+    "saveIncome": "Tidak dapat menyimpan pemasukan. Coba lagi.",
+    "saveExpense": "Tidak dapat menyimpan pengeluaran. Coba lagi.",
+    "saveAccount": "Tidak dapat menyimpan akun. Coba lagi.",
+    "saveCategory": "Tidak dapat menyimpan kategori. Coba lagi.",
+    "saveChanges": "Tidak dapat menyimpan perubahan. Coba lagi.",
+    "deleteCategory": "Tidak dapat menghapus kategori. Coba lagi."
+  },
+  "categories": {
+    "salary": "Gaji",
+    "commissionGig": "Komisi/Proyek",
+    "passiveIncome": "Pendapatan pasif",
+    "investmentReturn": "Hasil investasi",
+    "housing": "Tempat tinggal",
+    "utilities": "Utilitas",
+    "groceries": "Belanja bahan makanan",
+    "diningOut": "Makan di luar",
+    "transportation": "Transportasi",
+    "healthcare": "Kesehatan",
+    "entertainment": "Hiburan",
+    "shopping": "Belanja",
+    "savings": "Tabungan",
+    "miscellaneous": "Lain-lain"
+  },
+  "receipt": {
+    "errors": {
+      "emptyText": "Tidak ada teks yang terbaca. Coba foto yang lebih jelas dan terang.",
+      "invalidUri": "Gambar tersebut tidak dapat dibuka. Pilih foto lain.",
+      "imageLoadFailed": "Gambar tersebut tidak dapat dibuka. Pilih foto lain.",
+      "recognitionFailed": "Struk tidak dapat dibaca. Coba foto lain.",
+      "permissionRequired": "Akses galeri diperlukan untuk memilih foto struk.",
+      "permissionBlocked": "Akses galeri diblokir. Aktifkan di Pengaturan untuk memilih foto struk."
+    },
+    "unavailableWeb": "Pemindaian struk tidak tersedia di web. Masukkan transaksi secara manual.",
+    "unavailableDevice": "Perangkat ini tidak mendukung pengenalan teks di perangkat. Masukkan transaksi secara manual.",
+    "warnings": {
+      "amountMissing": "Tidak dapat menemukan total. Masukkan jumlah secara manual.",
+      "amountInferred": "Total diperkirakan. Periksa jumlah dengan cermat.",
+      "dateMissing": "Tidak dapat menemukan tanggal struk. Hari ini digunakan.",
+      "dateAmbiguous": "Tanggal struk mungkin ambigu. Periksa dengan cermat.",
+      "merchantMissing": "Tidak dapat menemukan nama merchant."
+    }
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "language": "Bahasa",
+    "english": "English",
+    "indonesian": "Bahasa Indonesia"
+  }
+}

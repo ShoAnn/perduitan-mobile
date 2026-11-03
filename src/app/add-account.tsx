@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,12 +24,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { refreshAccounts } from '@/stores/accounts';
 import type { AccountType } from '@/types/api';
 
-const TYPE_OPTIONS = [
-  { value: 'checking' as const, label: 'Checking' },
-  { value: 'savings' as const, label: 'Savings' },
-  { value: 'credit_card' as const, label: 'Credit card' },
-  { value: 'cash' as const, label: 'Cash' },
-  { value: 'investment' as const, label: 'Investment' },
+const TYPE_OPTIONS: { value: AccountType }[] = [
+  { value: 'checking' },
+  { value: 'savings' },
+  { value: 'credit_card' },
+  { value: 'cash' },
+  { value: 'investment' },
 ];
 
 const CURRENCY_OPTIONS = [
@@ -55,7 +56,13 @@ type ActivePanel = 'type' | 'currency' | null;
 export default function AddAccountScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const db = useSQLiteContext();
+
+  const typeOptions = TYPE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(`accountTypes.${option.value}`),
+  }));
 
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('checking');
@@ -101,7 +108,7 @@ export default function AddAccountScreen() {
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setNameError('Enter an account name.');
+      setNameError(t('errors.accountNameRequired'));
       return;
     }
 
@@ -117,7 +124,7 @@ export default function AddAccountScreen() {
       return;
     } catch (error) {
       console.error('Failed to save account', error);
-      setSaveError('Could not save the account. Please try again.');
+      setSaveError(t('errors.saveAccount'));
       setIsSaving(false);
       return;
     }
@@ -136,14 +143,14 @@ export default function AddAccountScreen() {
             keyboardDismissMode="on-drag">
             <View style={styles.form}>
               <TextField
-                label="Name"
+                label={t('forms.name')}
                 value={name}
                 onChangeText={(value) => {
                   setName(value);
                   setNameError(null);
                 }}
                 onFocus={() => setActivePanel(null)}
-                placeholder="Everyday Checking"
+                placeholder={t('placeholders.accountName')}
                 autoFocus
                 autoCapitalize="words"
                 returnKeyType="next"
@@ -152,17 +159,17 @@ export default function AddAccountScreen() {
               />
 
               <SelectField
-                label="Type"
-                value={TYPE_OPTIONS.find((o) => o.value === type)?.label ?? null}
-                placeholder="Select type"
+                label={t('forms.type')}
+                value={typeOptions.find((o) => o.value === type)?.label ?? null}
+                placeholder={t('pickers.selectType')}
                 onPress={openTypePicker}
                 open={activePanel === 'type'}
               />
 
               <SelectField
-                label="Currency"
+                label={t('forms.currency')}
                 value={currency || null}
-                placeholder="Select currency"
+                placeholder={t('pickers.selectCurrency')}
                 onPress={openCurrencyPicker}
                 open={activePanel === 'currency'}
               />
@@ -171,7 +178,7 @@ export default function AddAccountScreen() {
                 onPress={handleSave}
                 disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel="Add account"
+                accessibilityLabel={t('buttons.addAccount')}
                 accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
@@ -181,7 +188,7 @@ export default function AddAccountScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  {isSaving ? 'Adding…' : 'Add account'}
+                  {isSaving ? t('common.adding') : t('buttons.addAccount')}
                 </ThemedText>
               </Pressable>
 
@@ -195,10 +202,10 @@ export default function AddAccountScreen() {
 
           {activePanel === 'type' ? (
             <OptionPicker
-              options={TYPE_OPTIONS}
+              options={typeOptions}
               value={type}
               onChange={handleTypeChange}
-              title="Select type"
+              title={t('pickers.selectType')}
               onDismiss={dismissPanel}
             />
           ) : null}
@@ -208,7 +215,7 @@ export default function AddAccountScreen() {
               options={CURRENCY_OPTIONS}
               value={currency}
               onChange={handleCurrencyChange}
-              title="Select currency"
+              title={t('pickers.selectCurrency')}
               onDismiss={dismissPanel}
             />
           ) : null}

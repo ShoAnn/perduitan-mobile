@@ -1,6 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,12 +24,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { refreshAccounts } from '@/stores/accounts';
 import type { AccountType } from '@/types/api';
 
-const TYPE_OPTIONS = [
-  { value: 'checking' as const, label: 'Checking' },
-  { value: 'savings' as const, label: 'Savings' },
-  { value: 'credit_card' as const, label: 'Credit card' },
-  { value: 'cash' as const, label: 'Cash' },
-  { value: 'investment' as const, label: 'Investment' },
+const TYPE_OPTIONS: { value: AccountType }[] = [
+  { value: 'checking' },
+  { value: 'savings' },
+  { value: 'credit_card' },
+  { value: 'cash' },
+  { value: 'investment' },
 ];
 
 const CURRENCY_OPTIONS = [
@@ -55,8 +56,14 @@ type ActivePanel = 'type' | 'currency' | null;
 export default function EditAccountScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const db = useSQLiteContext();
+
+  const typeOptions = TYPE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(`accountTypes.${option.value}`),
+  }));
 
   const accountId = useMemo(() => {
     const raw = params.id;
@@ -121,7 +128,7 @@ export default function EditAccountScreen() {
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setNameError('Enter an account name.');
+      setNameError(t('errors.accountNameRequired'));
       return;
     }
 
@@ -137,7 +144,7 @@ export default function EditAccountScreen() {
       await refreshAccounts(db);
     } catch (error) {
       console.error('Failed to save account', error);
-      setSaveError('Could not save the account. Please try again.');
+      setSaveError(t('errors.saveAccount'));
       setIsSaving(false);
       return;
     }
@@ -154,7 +161,7 @@ export default function EditAccountScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
-          <ThemedText>Loading…</ThemedText>
+          <ThemedText>{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
     );
@@ -173,14 +180,14 @@ export default function EditAccountScreen() {
             keyboardDismissMode="on-drag">
             <View style={styles.form}>
               <TextField
-                label="Name"
+                label={t('forms.name')}
                 value={name}
                 onChangeText={(value) => {
                   setName(value);
                   setNameError(null);
                 }}
                 onFocus={() => setActivePanel(null)}
-                placeholder="Everyday Checking"
+                placeholder={t('placeholders.accountName')}
                 autoFocus
                 autoCapitalize="words"
                 returnKeyType="next"
@@ -189,17 +196,17 @@ export default function EditAccountScreen() {
               />
 
               <SelectField
-                label="Type"
-                value={TYPE_OPTIONS.find((o) => o.value === type)?.label ?? null}
-                placeholder="Select type"
+                label={t('forms.type')}
+                value={typeOptions.find((o) => o.value === type)?.label ?? null}
+                placeholder={t('pickers.selectType')}
                 onPress={openTypePicker}
                 open={activePanel === 'type'}
               />
 
               <SelectField
-                label="Currency"
+                label={t('forms.currency')}
                 value={currency || null}
-                placeholder="Select currency"
+                placeholder={t('pickers.selectCurrency')}
                 onPress={openCurrencyPicker}
                 open={activePanel === 'currency'}
               />
@@ -208,7 +215,7 @@ export default function EditAccountScreen() {
                 onPress={handleSave}
                 disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel="Save account"
+                accessibilityLabel={t('buttons.saveAccount')}
                 accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
@@ -218,7 +225,7 @@ export default function EditAccountScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  {isSaving ? 'Saving…' : 'Save account'}
+                  {isSaving ? t('common.saving') : t('buttons.saveAccount')}
                 </ThemedText>
               </Pressable>
 
@@ -232,10 +239,10 @@ export default function EditAccountScreen() {
 
           {activePanel === 'type' ? (
             <OptionPicker
-              options={TYPE_OPTIONS}
+              options={typeOptions}
               value={type}
               onChange={handleTypeChange}
-              title="Select type"
+              title={t('pickers.selectType')}
               onDismiss={dismissPanel}
             />
           ) : null}
@@ -245,7 +252,7 @@ export default function EditAccountScreen() {
               options={CURRENCY_OPTIONS}
               value={currency}
               onChange={handleCurrencyChange}
-              title="Select currency"
+              title={t('pickers.selectCurrency')}
               onDismiss={dismissPanel}
             />
           ) : null}

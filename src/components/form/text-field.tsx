@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentRef, type Ref } from 'react';
 import { Animated, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +14,8 @@ export type TextFieldProps = TextInputProps & {
   focused?: boolean;
   /** Fades a highlight border in and out, e.g. after a receipt scan fills the field. */
   glow?: Animated.Value;
+  /** Ref to the underlying input, for advancing focus programmatically. */
+  inputRef?: Ref<ComponentRef<typeof TextInput>>;
 };
 
 export function TextField({
@@ -24,6 +26,7 @@ export function TextField({
   multiline,
   focused,
   glow,
+  inputRef,
   onFocus,
   onBlur,
   style,
@@ -54,6 +57,7 @@ export function TextField({
           </ThemedText>
         ) : null}
         <TextInput
+          ref={inputRef}
           placeholderTextColor={theme.textSecondary}
           selectionColor={theme.accent}
           multiline={multiline}

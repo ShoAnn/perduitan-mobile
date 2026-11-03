@@ -1,6 +1,8 @@
 import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { FlatList, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,6 +14,13 @@ import { listTransactions } from '@/db/transactions';
 import { useTheme } from '@/hooks/use-theme';
 import { useLastUsedAccountId } from '@/stores/last-used-account';
 import type { Account } from '@/types/api';
+import { categoryLabel } from '@/utils/category-names';
+import {
+  formatCurrency,
+  formatDayLabel,
+  formatMonthLong,
+  formatMonthShort,
+} from '@/utils/format';
 import { toDateString } from '@/utils/transactions';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -22,8 +31,10 @@ const ALL_TIME = 'all';
 const SHOW_ARCHIVED_KEY = 'history.showArchivedAccounts';
 
 /** Account name with an `(archived)` marker for soft-deleted accounts. */
-function accountLabel(account: Account): string {
-  return account.archived_at ? `${account.name} (archived)` : account.name;
+function accountLabel(account: Account, t: TFunction): string {
+  return account.archived_at
+    ? `${account.name} ${t('common.archivedSuffix')}`
+    : account.name;
 }
 
 /** Reads the persisted "show archived" preference, defaulting to hidden. */
@@ -45,54 +56,10 @@ function monthKey(date: Date): string {
   return toDateString(date).slice(0, 7);
 }
 
-/** Formats `YYYY-MM` for display, for example `October 2026`. */
-function formatMonthLabel(key: string): string {
-  const [year, month] = key.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(
-    new Date(year, month - 1, 1)
-  );
-}
-
-/** Compact `YYYY-MM` for the filter pill, for example `Oct 2026`. */
-function formatMonthShort(key: string): string {
-  const [year, month] = key.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(
-    new Date(year, month - 1, 1)
-  );
-}
-
-/** `Today`/`Yesterday` plus the date, otherwise `Mon, Oct 27` (plus year when different). */
-function formatDayLabel(value: string): string {
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfDate = new Date(year, month - 1, day);
-  const diffDays = Math.round(
-    (startOfToday.getTime() - startOfDate.getTime()) / (24 * 60 * 60 * 1000)
-  );
-
-  const formatted = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    ...(year !== today.getFullYear() ? { year: 'numeric' } : {}),
-  }).format(date);
-
-  if (diffDays === 0) {
-    return `${formatted} · Today`;
-  }
-  if (diffDays === 1) {
-    return `${formatted} · Yesterday`;
-  }
-
-  return formatted;
-}
-
 export default function HistoryScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const db = useSQLiteContext();
 
   const lastUsedAccountId = useLastUsedAccountId(db);
@@ -149,7 +116,9 @@ export default function HistoryScreen() {
   );
 
   const selectedAccount = accounts.find((account) => account.id === selectedAccountId) ?? null;
-  const selectedAccountLabel = selectedAccount ? accountLabel(selectedAccount) : 'All accounts';
+  const selectedAccountLabel = selectedAccount
+    ? accountLabel(selectedAccount, t)
+    : t('history.allAccounts');
 
   const handleShowArchivedChange = (value: boolean) => {
     setShowArchived(value);
@@ -183,16 +152,20 @@ export default function HistoryScreen() {
     [transactions, tab, selectedMonth, selectedAccountId]
   );
 
-  const emptyLabel = useMemo(() => {
-    const monthSuffix =
-      selectedMonth === ALL_TIME ? '' : ` in ${formatMonthLabel(selectedMonth)}`;
-    if (selectedAccount) {
-      return `No ${tab} transactions for ${accountLabel(selectedAccount)}${monthSuffix}.`;
-    }
-    return selectedMonth === ALL_TIME
-      ? 'No transactions yet.'
-      : `No ${tab} transactions${monthSuffix}.`;
-  }, [selectedAccount, selectedMonth, tab]);
+  const emptyKind = t(`kinds.${tab}`);
+  const emptyMonth = selectedMonth === ALL_TIME ? null : formatMonthLong(selectedMonth);
+  const emptyAccount = selectedAccount ? accountLabel(selectedAccount, t) : null;
+  const emptyLabel = emptyAccount
+    ? emptyMonth
+      ? t('history.noAccountTransactionsIn', {
+          kind: emptyKind,
+          account: emptyAccount,
+          month: emptyMonth,
+        })
+      : t('history.noAccountTransactions', { kind: emptyKind, account: emptyAccount })
+    : emptyMonth
+      ? t('history.noKindTransactionsIn', { kind: emptyKind, month: emptyMonth })
+      : t('history.noTransactions');
 
   // Flat rows so each day can be introduced by a separator header. The query
   // already orders by `occurred_on`, so each group stays contiguous.
@@ -206,7 +179,7 @@ export default function HistoryScreen() {
         result.push({
           type: 'header',
           key: `header-${transaction.occurred_on}`,
-          label: formatDayLabel(transaction.occurred_on),
+          label: formatDayLabel(transaction.occurred_on, t),
         });
       }
       result.push({
@@ -217,7 +190,7 @@ export default function HistoryScreen() {
     }
 
     return result;
-  }, [filtered]);
+  }, [filtered, t]);
 
   return (
     <ThemedView style={styles.container}>
@@ -227,7 +200,7 @@ export default function HistoryScreen() {
             <Pressable
               onPress={() => router.push('/analytics')}
               accessibilityRole="button"
-              accessibilityLabel="Analytics"
+              accessibilityLabel={t('navigation.analytics')}
               hitSlop={Spacing.two}
               style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
               <ThemedText style={styles.headerIcon}>📊</ThemedText>
@@ -262,15 +235,20 @@ export default function HistoryScreen() {
                   })
                 }
                 accessibilityRole="button"
-                accessibilityLabel={`${transaction.category_name ?? 'Uncategorized'}, ${
-                  transaction.amount_cents > 0 ? 'income' : 'expense'
-                }`}
+                accessibilityLabel={t('history.rowAccessibility', {
+                  category: transaction.category_name
+                    ? categoryLabel(transaction.category_name, t)
+                    : t('common.uncategorized'),
+                  kind: t(transaction.amount_cents > 0 ? 'kinds.income' : 'kinds.expense'),
+                })}
                 style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
                 <ThemedView type="backgroundElement" style={styles.card}>
                   <View style={styles.cardRow}>
                     <View>
                       <ThemedText type="smallBold">
-                        {transaction.category_name ?? 'Uncategorized'}
+                        {transaction.category_name
+                          ? categoryLabel(transaction.category_name, t)
+                          : t('common.uncategorized')}
                       </ThemedText>
                     </View>
                     <ThemedText
@@ -278,10 +256,7 @@ export default function HistoryScreen() {
                       style={{
                         color: transaction.amount_cents > 0 ? theme.positive : theme.negative,
                       }}>
-                      {new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: 'IDR',
-                      }).format(Math.abs(transaction.amount_cents) / 100)}
+                      {formatCurrency(transaction.amount_cents)}
                     </ThemedText>
                   </View>
                   {transaction.description ? (
@@ -300,16 +275,17 @@ export default function HistoryScreen() {
           <Pressable
             onPress={() => setShowMonthPicker(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Filter by month, ${
-              selectedMonth === ALL_TIME ? 'all time' : formatMonthLabel(selectedMonth)
-            }`}
+            accessibilityLabel={t('history.filterByMonthAccessibility', {
+              value:
+                selectedMonth === ALL_TIME ? t('history.allTime') : formatMonthLong(selectedMonth),
+            })}
             style={({ pressed }) => [
               styles.filterButton,
               { backgroundColor: theme.backgroundElement },
               pressed && styles.pressed,
             ]}>
             <ThemedText type="smallBold" numberOfLines={1} style={styles.filterLabel}>
-              {selectedMonth === ALL_TIME ? 'All time' : formatMonthShort(selectedMonth)}
+              {selectedMonth === ALL_TIME ? t('history.allTime') : formatMonthShort(selectedMonth)}
             </ThemedText>
             <ThemedText type="smallBold" style={styles.filterChevron}>
               ⌄
@@ -319,7 +295,9 @@ export default function HistoryScreen() {
           <Pressable
             onPress={() => setShowAccountPicker(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Filter by account, ${selectedAccountLabel}`}
+            accessibilityLabel={t('history.filterByAccountAccessibility', {
+              value: selectedAccountLabel,
+            })}
             style={({ pressed }) => [
               styles.filterButton,
               { backgroundColor: theme.backgroundElement },
@@ -343,7 +321,7 @@ export default function HistoryScreen() {
             <ThemedText
               type="smallBold"
               style={{ color: tab === 'expense' ? '#000000' : theme.text }}>
-              Expense
+              {t('history.expense')}
             </ThemedText>
           </Pressable>
           <Pressable
@@ -354,7 +332,7 @@ export default function HistoryScreen() {
             <ThemedText
               type="smallBold"
               style={{ color: tab === 'income' ? '#000000' : theme.text }}>
-              Income
+              {t('history.income')}
             </ThemedText>
           </Pressable>
         </View>
@@ -369,13 +347,13 @@ export default function HistoryScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowMonthPicker(false)}
           accessibilityRole="button"
-          accessibilityLabel="Close month filter">
+          accessibilityLabel={t('history.closeMonthFilter')}>
           <ThemedView
             type="backgroundElement"
             style={styles.modalContent}
             onStartShouldSetResponder={() => true}>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.modalTitle}>
-              Filter by month
+              {t('history.filterByMonth')}
             </ThemedText>
             <FlatList
               data={[ALL_TIME, ...months]}
@@ -391,14 +369,14 @@ export default function HistoryScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     accessibilityLabel={
-                      item === ALL_TIME ? 'All time' : formatMonthLabel(item)
+                      item === ALL_TIME ? t('history.allTime') : formatMonthLong(item)
                     }>
                     {({ pressed }) => (
                       <ThemedView
                         type={selected ? 'backgroundSelected' : 'backgroundElement'}
                         style={[styles.monthOption, pressed && styles.pressed]}>
                         <ThemedText type={selected ? 'smallBold' : 'default'}>
-                          {item === ALL_TIME ? 'All time' : formatMonthLabel(item)}
+                          {item === ALL_TIME ? t('history.allTime') : formatMonthLong(item)}
                         </ThemedText>
                         {selected ? (
                           <ThemedText type="smallBold" style={{ color: theme.accent }}>
@@ -425,23 +403,23 @@ export default function HistoryScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowAccountPicker(false)}
           accessibilityRole="button"
-          accessibilityLabel="Close account filter">
+          accessibilityLabel={t('history.closeAccountFilter')}>
           <ThemedView
             type="backgroundElement"
             style={styles.modalContent}
             onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <ThemedText type="smallBold" themeColor="textSecondary">
-                Filter by account
+                {t('history.filterByAccount')}
               </ThemedText>
               <View style={styles.archiveToggle}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Show archived
+                  {t('history.showArchived')}
                 </ThemedText>
                 <Switch
                   value={showArchived}
                   onValueChange={handleShowArchivedChange}
-                  accessibilityLabel="Show archived accounts"
+                  accessibilityLabel={t('history.showArchivedAccessibility')}
                 />
               </View>
             </View>
@@ -451,7 +429,7 @@ export default function HistoryScreen() {
               renderItem={({ item }) => {
                 const selected =
                   item === null ? selectedAccountId === null : item.id === selectedAccountId;
-                const label = item ? accountLabel(item) : 'All accounts';
+                const label = item ? accountLabel(item, t) : t('history.allAccounts');
 
                 return (
                   <Pressable

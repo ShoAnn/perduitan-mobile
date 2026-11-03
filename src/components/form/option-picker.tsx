@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PanelHeader } from '@/components/form/panel-header';
@@ -55,9 +56,9 @@ export function OptionPicker<T extends string | number>({
   value,
   onChange,
   allowNone = false,
-  noneLabel = 'None',
+  noneLabel,
   onAdd,
-  addLabel = 'Add',
+  addLabel,
   addAccessibilityLabel,
   title,
   onDismiss,
@@ -65,11 +66,14 @@ export function OptionPicker<T extends string | number>({
   style,
 }: OptionPickerProps<T>) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const resolvedNoneLabel = noneLabel ?? t('common.none');
+  const resolvedAddLabel = addLabel ?? t('common.add');
   const hasHeader = Boolean(title);
   const rowHeight = rowHeightFor(height, hasHeader);
 
   const rows: PickerOption<T | null>[] = allowNone
-    ? [{ value: null, label: noneLabel }, ...options]
+    ? [{ value: null, label: resolvedNoneLabel }, ...options]
     : options;
   const showsScrollIndicator = rows.length + (onAdd ? 1 : 0) > VISIBLE_ITEMS;
 
@@ -122,7 +126,7 @@ export function OptionPicker<T extends string | number>({
           {onAdd ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={addAccessibilityLabel ?? addLabel}
+              accessibilityLabel={addAccessibilityLabel ?? resolvedAddLabel}
               onPress={onAdd}
               style={({ pressed }) => [
                 styles.option,
@@ -131,7 +135,7 @@ export function OptionPicker<T extends string | number>({
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" style={[styles.optionLabel, { color: theme.accent }]}>
-                + {addLabel}
+                + {resolvedAddLabel}
               </ThemedText>
             </Pressable>
           ) : null}

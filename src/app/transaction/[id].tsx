@@ -1,6 +1,7 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,34 +10,19 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { getTransactionById, type TransactionWithNames } from '@/db/transactions';
 import { useTheme } from '@/hooks/use-theme';
+import { categoryLabel } from '@/utils/category-names';
+import { formatCurrency, formatTimestamp } from '@/utils/format';
 import { formatDate, parseEditableDate } from '@/utils/transactions';
-
-function formatAmount(amountCents: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'IDR',
-  }).format(Math.abs(amountCents) / 100);
-}
 
 function formatOccurredOn(value: string): string {
   const date = parseEditableDate(value);
   return date ? formatDate(date) : value;
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
-
 export default function TransactionDetailsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id?: string }>();
   const parsedId = Number(params.id);
@@ -76,9 +62,9 @@ export default function TransactionDetailsScreen() {
   if (transactionId === null || transaction === null) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
-        <Stack.Screen options={{ title: 'Transaction' }} />
+        <Stack.Screen options={{ title: t('navigation.transaction') }} />
         <ThemedText type="small" themeColor="textSecondary">
-          This transaction could not be found.
+          {t('transaction.notFound')}
         </ThemedText>
       </ThemedView>
     );
@@ -87,7 +73,7 @@ export default function TransactionDetailsScreen() {
   if (transaction === undefined) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
-        <Stack.Screen options={{ title: 'Transaction' }} />
+        <Stack.Screen options={{ title: t('navigation.transaction') }} />
         <ActivityIndicator />
       </ThemedView>
     );
@@ -97,18 +83,26 @@ export default function TransactionDetailsScreen() {
   const amountColor = isIncome ? theme.positive : theme.negative;
 
   const details = [
-    { label: 'Type', value: isIncome ? 'Income' : 'Expense' },
-    { label: 'Account', value: transaction.account_name ?? 'Unknown account' },
-    { label: 'Category', value: transaction.category_name ?? 'Uncategorized' },
-    { label: 'Date', value: formatOccurredOn(transaction.occurred_on) },
-    { label: 'Added', value: formatTimestamp(transaction.created_at) },
+    { label: t('transaction.type'), value: isIncome ? t('transaction.income') : t('transaction.expense') },
+    { label: t('transaction.account'), value: transaction.account_name ?? t('transaction.unknownAccount') },
+    {
+      label: t('transaction.category'),
+      value: transaction.category_name
+        ? categoryLabel(transaction.category_name, t)
+        : t('common.uncategorized'),
+    },
+    { label: t('transaction.date'), value: formatOccurredOn(transaction.occurred_on) },
+    {
+      label: t('transaction.added'),
+      value: formatTimestamp(transaction.created_at, transaction.created_at),
+    },
   ];
 
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          title: isIncome ? 'Income details' : 'Expense details',
+          title: isIncome ? t('navigation.incomeDetails') : t('navigation.expenseDetails'),
           headerRight: () => (
             <Pressable
               onPress={() =>
@@ -118,11 +112,11 @@ export default function TransactionDetailsScreen() {
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel="Edit transaction"
+              accessibilityLabel={t('transaction.editAccessibility')}
               hitSlop={Spacing.two}
               style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
               <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                Edit
+                {t('common.edit')}
               </ThemedText>
             </Pressable>
           ),
@@ -134,23 +128,23 @@ export default function TransactionDetailsScreen() {
             <ThemedView type="backgroundElement" style={styles.hero}>
               <ThemedText style={[styles.amount, { color: amountColor }]}>
                 {isIncome ? '+' : '−'}
-                {formatAmount(transaction.amount_cents)}
+                {formatCurrency(transaction.amount_cents)}
               </ThemedText>
             </ThemedView>
 
             {transaction.description ? (
               <ThemedView type="backgroundElement" style={styles.descriptionCard}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  Description
+                  {t('transaction.description')}
                 </ThemedText>
                 <ThemedText>{transaction.description}</ThemedText>
               </ThemedView>
             ) : 
               <ThemedView type="backgroundElement" style={styles.descriptionCard}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  Description
+                  {t('transaction.description')}
                 </ThemedText>
-                <ThemedText>None</ThemedText>
+                <ThemedText>{t('transaction.none')}</ThemedText>
               </ThemedView>
             }
 

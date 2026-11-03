@@ -86,20 +86,20 @@ export async function readReceiptText(uri: string): Promise<ReceiptOcrResult> {
   }
 }
 
-/** User-facing message for an OCR failure. */
-export function receiptOcrErrorMessage(error: unknown): string {
+/** i18n key for the user-facing message of an OCR failure. */
+export function receiptOcrErrorKey(error: unknown): string {
   if (error instanceof ReceiptOcrError) {
     switch (error.code) {
       case 'empty-text':
-        return 'No readable text was found. Try a clearer, well-lit photo.';
+        return 'receipt.errors.emptyText';
       case 'invalid-uri':
-        return 'That image could not be opened. Choose another photo.';
+        return 'receipt.errors.invalidUri';
       case 'image-load-failed':
-        return 'That image could not be opened. Choose another photo.';
+        return 'receipt.errors.imageLoadFailed';
       case 'recognition-failed':
-        return 'The receipt could not be read. Try another photo.';
+        return 'receipt.errors.recognitionFailed';
     }
   }
 
-  return 'The receipt could not be read. Try another photo.';
+  return 'receipt.errors.recognitionFailed';
 }

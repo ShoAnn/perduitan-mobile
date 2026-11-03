@@ -1,0 +1,220 @@
+{
+  "app": {
+    "name": "Perduitan"
+  },
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "saveChanges": "Save changes",
+    "cancel": "Cancel",
+    "add": "Add",
+    "adding": "Adding…",
+    "selectOption": "Select an option",
+    "none": "None",
+    "done": "Done",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "confirmDelete": "Confirm delete?",
+    "tapToHide": "Tap to hide",
+    "loading": "Loading…",
+    "archivedSuffix": "(archived)",
+    "uncategorized": "Uncategorized"
+  },
+  "navigation": {
+    "settings": "Settings",
+    "addIncome": "Add income",
+    "addExpense": "Add expense",
+    "newCategory": "New category",
+    "categories": "Categories",
+    "editAccount": "Edit account",
+    "addAccount": "Add account",
+    "history": "History",
+    "analytics": "Analytics",
+    "transaction": "Transaction",
+    "editTransaction": "Edit transaction",
+    "editIncome": "Edit income",
+    "editExpense": "Edit expense",
+    "incomeDetails": "Income details",
+    "expenseDetails": "Expense details"
+  },
+  "home": {
+    "addIncome": "Add income",
+    "addExpense": "Add expense",
+    "history": "History",
+    "addAccount": "Add account",
+    "noAccounts": "You haven't add any accounts yet",
+    "lastUsedAccount": "Last used account",
+    "pressBackToExit": "Press back again to exit",
+    "closeAccounts": "Close accounts",
+    "editAccountAccessibility": "Edit account {{name}}",
+    "deleteAccountAccessibility": "Delete account {{name}}",
+    "confirmDeleteAccountAccessibility": "Confirm delete account {{name}}"
+  },
+  "forms": {
+    "date": "Date",
+    "amount": "Amount",
+    "account": "Account",
+    "category": "Category",
+    "description": "Description",
+    "name": "Name",
+    "type": "Type",
+    "currency": "Currency",
+    "kind": "Kind"
+  },
+  "pickers": {
+    "selectAmount": "Select amount",
+    "selectAccount": "Select account",
+    "selectCategory": "Select category",
+    "selectType": "Select type",
+    "selectCurrency": "Select currency",
+    "selectKind": "Select kind"
+  },
+  "buttons": {
+    "saveIncome": "Save income",
+    "saveExpense": "Save expense",
+    "saveAccount": "Save account",
+    "addAccount": "Add account",
+    "addCategory": "Add category",
+    "saveCategory": "Save category"
+  },
+  "placeholders": {
+    "amount": "0",
+    "date": "YYYY-MM-DD",
+    "accountName": "Everyday Checking",
+    "categoryName": "Coffee",
+    "incomeDescription": "August salary with bonuses included...",
+    "expenseDescription": "Weekly grocery run"
+  },
+  "hints": {
+    "kind": "Used to group the category on transaction forms.",
+    "tapToEditDate": "Tap to edit the date"
+  },
+  "accountTypes": {
+    "checking": "Checking",
+    "savings": "Savings",
+    "credit_card": "Credit card",
+    "cash": "Cash",
+    "investment": "Investment"
+  },
+  "kinds": {
+    "expense": "Expense",
+    "income": "Income"
+  },
+  "keypad": {
+    "backspace": "Backspace",
+    "decimalComma": "Decimal comma",
+    "moveCursorLeft": "Move cursor left",
+    "moveCursorRight": "Move cursor right",
+    "done": "Done"
+  },
+  "categoryEditor": {
+    "title": "Edit category",
+    "editAccessibility": "Edit {{name}}",
+    "deleteAccessibility": "Delete {{name}}",
+    "confirmDeleteAccessibility": "Confirm delete {{name}}",
+    "cancelDeleteAccessibility": "Cancel delete {{name}}",
+    "transactionCount_one": "{{count}} transaction will keep this category.",
+    "transactionCount_other": "{{count}} transactions will keep this category.",
+    "noTransactions": "No transactions use this category.",
+    "empty": "No categories yet. Add one below."
+  },
+  "history": {
+    "expense": "Expense",
+    "income": "Income",
+    "allTime": "All time",
+    "allAccounts": "All accounts",
+    "showArchived": "Show archived",
+    "showArchivedAccessibility": "Show archived accounts",
+    "filterByMonth": "Filter by month",
+    "filterByMonthAccessibility": "Filter by month, {{value}}",
+    "filterByAccount": "Filter by account",
+    "filterByAccountAccessibility": "Filter by account, {{value}}",
+    "closeMonthFilter": "Close month filter",
+    "closeAccountFilter": "Close account filter",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "noTransactions": "No transactions yet.",
+    "noKindTransactions": "No {{kind}} transactions.",
+    "noKindTransactionsIn": "No {{kind}} transactions in {{month}}.",
+    "noAccountTransactions": "No {{kind}} transactions for {{account}}.",
+    "noAccountTransactionsIn": "No {{kind}} transactions for {{account}} in {{month}}.",
+    "rowAccessibility": "{{category}}, {{kind}}"
+  },
+  "transaction": {
+    "type": "Type",
+    "account": "Account",
+    "category": "Category",
+    "date": "Date",
+    "added": "Added",
+    "description": "Description",
+    "none": "None",
+    "income": "Income",
+    "expense": "Expense",
+    "unknownAccount": "Unknown account",
+    "editAccessibility": "Edit transaction",
+    "notFound": "This transaction could not be found."
+  },
+  "scan": {
+    "scanReceipt": "Scan receipt",
+    "readingReceipt": "Reading receipt…",
+    "fillIncome": "Fill income from a photo",
+    "fillExpense": "Fill expense from a photo",
+    "chooseAccessibility": "Choose a receipt photo"
+  },
+  "errors": {
+    "amountRequired": "Enter an amount greater than 0.",
+    "accountRequired": "Select an account before saving.",
+    "dateFormat": "Use YYYY-MM-DD, for example 2026-10-23.",
+    "accountNameRequired": "Enter an account name.",
+    "categoryNameRequired": "Enter a category name.",
+    "categoryExists": "A category with this name already exists.",
+    "saveIncome": "Could not save the income. Please try again.",
+    "saveExpense": "Could not save the expense. Please try again.",
+    "saveAccount": "Could not save the account. Please try again.",
+    "saveCategory": "Could not save the category. Please try again.",
+    "saveChanges": "Could not save the changes. Please try again.",
+    "deleteCategory": "Could not delete the category. Please try again."
+  },
+  "categories": {
+    "salary": "Salary",
+    "commissionGig": "Commission/Gig",
+    "passiveIncome": "Passive income",
+    "investmentReturn": "Investment return",
+    "housing": "Housing",
+    "utilities": "Utilities",
+    "groceries": "Groceries",
+    "diningOut": "Dining Out",
+    "transportation": "Transportation",
+    "healthcare": "Healthcare",
+    "entertainment": "Entertainment",
+    "shopping": "Shopping",
+    "savings": "Savings",
+    "miscellaneous": "Miscellaneous"
+  },
+  "receipt": {
+    "errors": {
+      "emptyText": "No readable text was found. Try a clearer, well-lit photo.",
+      "invalidUri": "That image could not be opened. Choose another photo.",
+      "imageLoadFailed": "That image could not be opened. Choose another photo.",
+      "recognitionFailed": "The receipt could not be read. Try another photo.",
+      "permissionRequired": "Gallery access is required to choose a receipt photo.",
+      "permissionBlocked": "Gallery access is blocked. Enable it in Settings to choose a receipt photo."
+    },
+    "unavailableWeb": "Receipt scanning is not available on web. Enter the transaction manually.",
+    "unavailableDevice": "This device does not support on-device text recognition. Enter the transaction manually.",
+    "warnings": {
+      "amountMissing": "Could not find the total. Enter the amount manually.",
+      "amountInferred": "The total was inferred. Check the amount carefully.",
+      "dateMissing": "Could not find the receipt date. Today was used.",
+      "dateAmbiguous": "The receipt date may be ambiguous. Check it carefully.",
+      "merchantMissing": "Could not find the merchant name."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "english": "English",
+    "indonesian": "Bahasa Indonesia"
+  }
+}

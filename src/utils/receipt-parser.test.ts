@@ -207,7 +207,7 @@ describe('parseReceiptText', () => {
 
     expect(receipt.amountCents).toBe(2500000);
     expect(receipt.amountConfidence).toBe('low');
-    expect(receipt.warnings).toContain('The total was inferred. Check the amount carefully.');
+    expect(receipt.warnings).toContain('receipt.warnings.amountInferred');
   });
 
   it('returns empty fields and warnings for unreadable text', () => {

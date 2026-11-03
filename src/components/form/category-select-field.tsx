@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 
 import { SelectField } from '@/components/form/select-field';
@@ -30,12 +31,13 @@ export function CategorySelectField({
   onManagePress,
 }: CategorySelectFieldProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <SelectField
-      label="Category"
+      label={t('forms.category')}
       value={value}
-      placeholder="Select category"
+      placeholder={t('pickers.selectCategory')}
       onPress={onPress}
       open={open}
       glow={glow}
@@ -43,7 +45,7 @@ export function CategorySelectField({
         <Pressable
           onPress={onManagePress}
           accessibilityRole="button"
-          accessibilityLabel="Manage categories"
+          accessibilityLabel={t('navigation.categories')}
           hitSlop={Spacing.one}
           style={({ pressed }) => [
             styles.manageButton,

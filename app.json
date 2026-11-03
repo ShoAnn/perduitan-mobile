@@ -69,6 +69,15 @@
             "useLegacyPackaging": true
           }
         }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": [
+            "en",
+            "id"
+          ]
+        }
       ]
     ],
     "experiments": {

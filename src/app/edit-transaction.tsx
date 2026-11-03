@@ -12,6 +12,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -33,6 +35,7 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { useCategories } from '@/stores/categories';
 import type { Account } from '@/types/api';
+import { categoryLabel } from '@/utils/category-names';
 import {
   formatCentsForEditing,
   formatDate,
@@ -44,17 +47,16 @@ import {
 
 type ActivePanel = 'amount' | 'account' | 'category' | null;
 
-function sentenceCase(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
-function accountLabel(account: Account): string {
-  return account.archived_at ? `${account.name} (archived)` : account.name;
+function accountLabel(account: Account, t: TFunction): string {
+  return account.archived_at
+    ? `${account.name} ${t('common.archivedSuffix')}`
+    : account.name;
 }
 
 export default function EditTransactionScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ id?: string }>();
   const db = useSQLiteContext();
 
@@ -164,7 +166,7 @@ export default function EditTransactionScreen() {
   const commitDate = () => {
     const parsed = parseEditableDate(dateDraft);
     if (!parsed) {
-      setDateError('Use YYYY-MM-DD, for example 2026-10-23.');
+      setDateError(t('errors.dateFormat'));
       return;
     }
 
@@ -242,7 +244,7 @@ export default function EditTransactionScreen() {
     if (isEditingDate) {
       const parsed = parseEditableDate(dateDraft);
       if (!parsed) {
-        setDateError('Use YYYY-MM-DD, for example 2026-10-23.');
+        setDateError(t('errors.dateFormat'));
         return;
       }
       effectiveDate = parsed;
@@ -253,11 +255,11 @@ export default function EditTransactionScreen() {
 
     const amountCents = parseAmountToCents(amount);
     if (amountCents === null || amountCents <= 0) {
-      setAmountError('Enter an amount greater than 0.');
+      setAmountError(t('errors.amountRequired'));
       return;
     }
     if (accountId === null) {
-      setSaveError('Select an account before saving.');
+      setSaveError(t('errors.accountRequired'));
       return;
     }
 
@@ -273,7 +275,7 @@ export default function EditTransactionScreen() {
       });
     } catch (error) {
       console.error('Failed to update transaction', error);
-      setSaveError('Could not save the changes. Please try again.');
+      setSaveError(t('errors.saveChanges'));
       return;
     } finally {
       setIsSaving(false);
@@ -291,9 +293,9 @@ export default function EditTransactionScreen() {
   if (transactionId === null || transaction === null) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
-        <Stack.Screen options={{ title: 'Edit transaction' }} />
+        <Stack.Screen options={{ title: t('navigation.editTransaction') }} />
         <ThemedText type="small" themeColor="textSecondary">
-          This transaction could not be found.
+          {t('transaction.notFound')}
         </ThemedText>
       </ThemedView>
     );
@@ -302,7 +304,7 @@ export default function EditTransactionScreen() {
   if (transaction === undefined) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
-        <Stack.Screen options={{ title: 'Edit transaction' }} />
+        <Stack.Screen options={{ title: t('navigation.editTransaction') }} />
         <ActivityIndicator />
       </ThemedView>
     );
@@ -310,7 +312,9 @@ export default function EditTransactionScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: isIncome ? 'Edit income' : 'Edit expense' }} />
+      <Stack.Screen
+        options={{ title: isIncome ? t('navigation.editIncome') : t('navigation.editExpense') }}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}>
@@ -324,7 +328,7 @@ export default function EditTransactionScreen() {
               <View>
                 <View style={styles.dateRow}>
                   <ThemedText type="smallBold" themeColor="textSecondary">
-                    Date
+                    {t('forms.date')}
                   </ThemedText>
 
                   {isEditingDate ? (
@@ -339,8 +343,8 @@ export default function EditTransactionScreen() {
                       autoFocus
                       selectTextOnFocus
                       returnKeyType="done"
-                      accessibilityLabel="Date"
-                      placeholder="YYYY-MM-DD"
+                      accessibilityLabel={t('forms.date')}
+                      placeholder={t('placeholders.date')}
                       placeholderTextColor={theme.textSecondary}
                       selectionColor={theme.accent}
                       style={[styles.dateInput, { color: theme.text }]}
@@ -349,7 +353,7 @@ export default function EditTransactionScreen() {
                     <Pressable
                       onPress={startEditingDate}
                       accessibilityRole="button"
-                      accessibilityHint="Tap to edit the date"
+                      accessibilityHint={t('hints.tapToEditDate')}
                       hitSlop={Spacing.two}>
                       <ThemedText>{formatDate(occurredAt)}</ThemedText>
                     </Pressable>
@@ -364,7 +368,7 @@ export default function EditTransactionScreen() {
               </View>
 
               <TextField
-                label="Amount"
+                label={t('forms.amount')}
                 prefix={selectedAccount?.currency}
                 value={amount}
                 focused={activePanel === 'amount'}
@@ -380,34 +384,38 @@ export default function EditTransactionScreen() {
                   setAmountCaret(event.nativeEvent.selection.start);
                 }}
                 onFocus={() => setActivePanel('amount')}
-                placeholder="0"
+                placeholder={t('placeholders.amount')}
                 error={amountError ?? undefined}
               />
 
               <SelectField
-                label="Account"
-                value={selectedAccount ? accountLabel(selectedAccount) : null}
-                placeholder="Select account"
+                label={t('forms.account')}
+                value={selectedAccount ? accountLabel(selectedAccount, t) : null}
+                placeholder={t('pickers.selectAccount')}
                 onPress={openAccountPicker}
                 open={activePanel === 'account'}
               />
 
               <SelectField
-                label="Category"
-                value={selectedCategory ? sentenceCase(selectedCategory.name) : null}
-                placeholder="Select category"
+                label={t('forms.category')}
+                value={selectedCategory ? categoryLabel(selectedCategory.name, t) : null}
+                placeholder={t('pickers.selectCategory')}
                 onPress={openCategoryPicker}
                 open={activePanel === 'category'}
               />
 
               <TextField
-                label="Description"
+                label={t('forms.description')}
                 value={description}
                 onChangeText={(value) => {
                   setDescription(value);
                 }}
                 onFocus={() => setActivePanel(null)}
-                placeholder={isIncome ? 'August salary with bonuses included...' : 'Weekly grocery run'}
+                placeholder={
+                  isIncome
+                    ? t('placeholders.incomeDescription')
+                    : t('placeholders.expenseDescription')
+                }
                 placeholderTextColor={`${theme.textSecondary}B3`}
                 multiline
                 maxLength={280}
@@ -417,7 +425,7 @@ export default function EditTransactionScreen() {
                 onPress={handleSave}
                 disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel="Save changes"
+                accessibilityLabel={t('buttons.saveChanges')}
                 accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
@@ -427,7 +435,7 @@ export default function EditTransactionScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  {isSaving ? 'Saving…' : 'Save changes'}
+                  {isSaving ? t('common.saving') : t('buttons.saveChanges')}
                 </ThemedText>
               </Pressable>
 
@@ -445,7 +453,7 @@ export default function EditTransactionScreen() {
               caret={amountCaret}
               onChange={handleAmountChange}
               onSubmit={submitAmount}
-              title="Select amount"
+              title={t('pickers.selectAmount')}
               onDismiss={dismissPanel}
             />
           ) : null}
@@ -454,15 +462,15 @@ export default function EditTransactionScreen() {
             <OptionPicker
               options={accounts.map((account) => ({
                 value: account.id,
-                label: accountLabel(account),
+                label: accountLabel(account, t),
               }))}
               value={accountId}
               onChange={handleAccountChange}
-              title="Select account"
+              title={t('pickers.selectAccount')}
               onDismiss={dismissPanel}
               onAdd={handleAddAccount}
-              addLabel="Add account"
-              addAccessibilityLabel="Add account"
+              addLabel={t('buttons.addAccount')}
+              addAccessibilityLabel={t('buttons.addAccount')}
             />
           ) : null}
 
@@ -470,14 +478,14 @@ export default function EditTransactionScreen() {
             <OptionPicker
               options={kindCategories.map((category) => ({
                 value: category.id,
-                label: sentenceCase(category.name),
+                label: categoryLabel(category.name, t),
               }))}
               value={categoryId}
               onChange={handleCategoryChange}
               onAdd={handleAddCategory}
-              addLabel="Add category"
-              addAccessibilityLabel="Add category"
-              title="Select category"
+              addLabel={t('buttons.addCategory')}
+              addAccessibilityLabel={t('buttons.addCategory')}
+              title={t('pickers.selectCategory')}
               onDismiss={dismissPanel}
             />
           ) : null}

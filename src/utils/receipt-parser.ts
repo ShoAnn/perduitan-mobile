@@ -16,6 +16,7 @@ export type ParsedReceipt = {
   merchant: string | null;
   description: string | null;
   suggestedCategoryName: string | null;
+  /** i18n keys for the caveats the user should review. */
   warnings: string[];
   rawText: string;
 };
@@ -756,19 +757,19 @@ export function parseReceiptText(
   const warnings: string[] = [];
 
   if (amount.cents === null) {
-    warnings.push('Could not find the total. Enter the amount manually.');
+    warnings.push('receipt.warnings.amountMissing');
   } else if (amount.confidence === 'low') {
-    warnings.push('The total was inferred. Check the amount carefully.');
+    warnings.push('receipt.warnings.amountInferred');
   }
 
   if (date.value === null) {
-    warnings.push('Could not find the receipt date. Today was used.');
+    warnings.push('receipt.warnings.dateMissing');
   } else if (date.confidence === 'low') {
-    warnings.push('The receipt date may be ambiguous. Check it carefully.');
+    warnings.push('receipt.warnings.dateAmbiguous');
   }
 
   if (description === null) {
-    warnings.push('Could not find the merchant name.');
+    warnings.push('receipt.warnings.merchantMissing');
   }
 
   return {

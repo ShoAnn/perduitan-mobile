@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,15 +24,21 @@ import { useTheme } from '@/hooks/use-theme';
 import { addCategory, hasCategoryName, useCategories } from '@/stores/categories';
 import type { CategoryKind } from '@/types/api';
 
-const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
-  { value: 'expense', label: 'Expense' },
-  { value: 'income', label: 'Income' },
+const KIND_OPTIONS: { value: CategoryKind }[] = [
+  { value: 'expense' },
+  { value: 'income' },
 ];
 
 export default function NewCategoryScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const db = useSQLiteContext();
+
+  const kindOptions = KIND_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(`kinds.${option.value}`),
+  }));
 
   // Warm the cache so `hasCategoryName` can check duplicates while typing.
   useCategories(db);
@@ -75,11 +82,11 @@ export default function NewCategoryScreen() {
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      setNameError('Enter a category name.');
+      setNameError(t('errors.categoryNameRequired'));
       return;
     }
     if (hasCategoryName(trimmedName)) {
-      setNameError('A category with this name already exists.');
+      setNameError(t('errors.categoryExists'));
       return;
     }
 
@@ -89,8 +96,8 @@ export default function NewCategoryScreen() {
     } catch (error) {
       setNameError(
         isUniqueConstraintError(error)
-          ? 'A category with this name already exists.'
-          : 'Could not save the category. Please try again.'
+          ? t('errors.categoryExists')
+          : t('errors.saveCategory')
       );
       return;
     } finally {
@@ -116,13 +123,13 @@ export default function NewCategoryScreen() {
             keyboardDismissMode="on-drag">
             <View style={styles.form}>
               <TextField
-                label="Name"
+                label={t('forms.name')}
                 value={name}
                 onChangeText={(value) => {
                   setName(value);
                   setNameError(null);
                 }}
-                placeholder="Coffee"
+                placeholder={t('placeholders.categoryName')}
                 autoFocus
                 autoCapitalize="words"
                 returnKeyType="done"
@@ -132,19 +139,19 @@ export default function NewCategoryScreen() {
               />
 
               <SelectField
-                label="Kind"
-                value={kind}
-                placeholder="Select kind"
+                label={t('forms.kind')}
+                value={kindOptions.find((o) => o.value === kind)?.label ?? null}
+                placeholder={t('pickers.selectKind')}
                 onPress={openKindPicker}
                 open={isKindPickerOpen}
-                hint="Used to group the category on transaction forms."
+                hint={t('hints.kind')}
               />
 
               <Pressable
                 onPress={handleSubmit}
                 disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel="Add category"
+                accessibilityLabel={t('buttons.addCategory')}
                 accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.submitButton,
@@ -154,18 +161,18 @@ export default function NewCategoryScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  {isSaving ? 'Adding…' : 'Add category'}
+                  {isSaving ? t('common.adding') : t('buttons.addCategory')}
                 </ThemedText>
               </Pressable>
 
               <Pressable
                 onPress={dismiss}
                 accessibilityRole="button"
-                accessibilityLabel="Cancel"
+                accessibilityLabel={t('common.cancel')}
                 hitSlop={Spacing.two}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             </View>
@@ -173,10 +180,10 @@ export default function NewCategoryScreen() {
 
           {isKindPickerOpen ? (
             <OptionPicker
-              options={KIND_OPTIONS}
+              options={kindOptions}
               value={kind}
               onChange={handleKindChange}
-              title="Select kind"
+              title={t('pickers.selectKind')}
               onDismiss={closeKindPicker}
             />
           ) : null}

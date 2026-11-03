@@ -1,5 +1,6 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   BackHandler,
   FlatList,
@@ -23,11 +24,13 @@ import {
   refreshLastUsedAccountId,
   useLastUsedAccountId,
 } from '@/stores/last-used-account';
+import { formatCurrency, formatNumber } from '@/utils/format';
 import { useCallback, useRef, useState } from 'react';
 
 export default function HomeScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
+  const { t } = useTranslation();
   const accounts = useAccounts(db);
   const lastAccountId = useLastUsedAccountId(db);
   const [balance, setBalance] = useState<number>(0);
@@ -111,7 +114,7 @@ export default function HomeScreen() {
         }
 
         backPressedOnce.current = true;
-        ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+        ToastAndroid.show(t('home.pressBackToExit'), ToastAndroid.SHORT);
 
         backResetTimeout.current = setTimeout(() => {
           backPressedOnce.current = false;
@@ -130,11 +133,25 @@ export default function HomeScreen() {
         }
         backPressedOnce.current = false;
       };
-    }, [])
+    }, [t])
   );
 
   return (
     <ThemedView style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push('/settings')}
+              accessibilityRole="button"
+              accessibilityLabel={t('navigation.settings')}
+              hitSlop={Spacing.two}
+              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+              <ThemedText style={styles.headerIcon}>⚙︎</ThemedText>
+            </Pressable>
+          ),
+        }}
+      />
       <SafeAreaView style={styles.safeArea}>
         <Pressable
           onPress={() => {
@@ -146,18 +163,14 @@ export default function HomeScreen() {
             }
           }}
           accessibilityRole="button"
-          accessibilityLabel={lastAccount ? 'Last used account' : 'Add account'}
+          accessibilityLabel={lastAccount ? t('home.lastUsedAccount') : t('home.addAccount')}
           style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }, styles.lastUsedSection]}>
           <ThemedView type="backgroundElement" style={styles.lastUsedCard}>
             <ThemedText type="subtitle" style={styles.balanceText}>
-              {lastAccount
-                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'IDR' }).format(
-                    balance / 100
-                  )
-                : 'Add account'}
+              {lastAccount ? formatCurrency(balance) : t('home.addAccount')}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary" style={styles.accountName}>
-              {lastAccount ? lastAccount.name : "You haven't add any accounts yet"}
+              {lastAccount ? lastAccount.name : t('home.noAccounts')}
             </ThemedText>
           </ThemedView>
         </Pressable>
@@ -166,15 +179,15 @@ export default function HomeScreen() {
           <ActionButton
             href="/add-income"
             glyph="+"
-            label="Add income"
-            accessibilityLabel="Add income"
+            label={t('home.addIncome')}
+            accessibilityLabel={t('home.addIncome')}
             glyphColor="positive"
           />
           <ActionButton
             href="/add-expense"
             glyph="−"
-            label="Add expense"
-            accessibilityLabel="Add expense"
+            label={t('home.addExpense')}
+            accessibilityLabel={t('home.addExpense')}
             glyphColor="negative"
           />
         </ThemedView>
@@ -182,10 +195,10 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => router.push('/history')}
           accessibilityRole="button"
-          accessibilityLabel="History"
+          accessibilityLabel={t('home.history')}
           style={({ pressed }) => [styles.historyButton, pressed && { opacity: 0.8 }]}>
           <ThemedView type="backgroundElement" style={styles.historyInner}>
-            <ThemedText type="subtitle">History</ThemedText>
+            <ThemedText type="subtitle">{t('home.history')}</ThemedText>
           </ThemedView>
         </Pressable>
       </SafeAreaView>
@@ -207,7 +220,7 @@ export default function HomeScreen() {
             setShowAccountsModal(false);
           }}
           accessibilityRole="button"
-          accessibilityLabel="Close accounts">
+          accessibilityLabel={t('home.closeAccounts')}>
           <ThemedView
             type="backgroundElement"
             style={styles.modalContent}
@@ -241,13 +254,11 @@ export default function HomeScreen() {
                         <View style={styles.modalAccountInfo}>
                           <ThemedText type="default">{item.name}</ThemedText>
                           <ThemedText themeColor="textSecondary" type="small">
-                            {item.currency}
+                            {t(`accountTypes.${item.type}`)} - {item.currency}
                           </ThemedText>
                         </View>
                         <ThemedText type="smallBold" style={styles.modalBalance}>
-                          {new Intl.NumberFormat('en-US').format(
-                            (balances[item.id] ?? 0) / 100
-                          )}
+                          {formatNumber((balances[item.id] ?? 0) / 100)}
                         </ThemedText>
                       </View>
                       {selectedAccountId === item.id ? (
@@ -258,7 +269,9 @@ export default function HomeScreen() {
                               router.push({ pathname: '/edit-account', params: { id: String(item.id) } });
                             }}
                             accessibilityRole="button"
-                            accessibilityLabel={`Edit account ${item.name}`}
+                            accessibilityLabel={t('home.editAccountAccessibility', {
+                              name: item.name,
+                            })}
                             style={({ pressed }) => [styles.modalBigButton, pressed && styles.modalPressed]}>
                             <ThemedText style={styles.modalBigText}>✎</ThemedText>
                           </Pressable>
@@ -278,8 +291,8 @@ export default function HomeScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={
                               confirmDeleteId === item.id
-                                ? `Confirm delete account ${item.name}`
-                                : `Delete account ${item.name}`
+                                ? t('home.confirmDeleteAccountAccessibility', { name: item.name })
+                                : t('home.deleteAccountAccessibility', { name: item.name })
                             }
                             style={({ pressed }) => [
                               styles.modalBigButton,
@@ -292,7 +305,7 @@ export default function HomeScreen() {
                                   ? styles.modalConfirmText
                                   : styles.modalBigText
                               }>
-                              {confirmDeleteId === item.id ? 'Confirm delete?' : '🗑'}
+                              {confirmDeleteId === item.id ? t('common.confirmDelete') : '🗑'}
                             </ThemedText>
                           </Pressable>
                         </View>
@@ -309,14 +322,14 @@ export default function HomeScreen() {
                     router.push('/add-account');
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Add account"
+                  accessibilityLabel={t('home.addAccount')}
                   style={({ pressed }) => [
                     styles.modalCard,
                     styles.addAccountCard,
                     pressed && styles.modalPressed,
                   ]}>
                   <ThemedText type="default" style={styles.addAccountText}>
-                    + Add account
+                    + {t('home.addAccount')}
                   </ThemedText>
                 </Pressable>
               }
@@ -378,6 +391,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'stretch',
     gap: Spacing.three,
+  },
+  headerButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIcon: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   modalOverlay: {
     flex: 1,

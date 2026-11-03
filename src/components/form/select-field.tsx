@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -25,7 +26,7 @@ type SelectFieldProps = {
 export function SelectField({
   label,
   value,
-  placeholder = 'Select an option',
+  placeholder,
   onPress,
   open = false,
   glow,
@@ -33,6 +34,8 @@ export function SelectField({
   trailing,
 }: SelectFieldProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('common.selectOption');
   const hasValue = value != null && value.trim().length > 0;
 
   return (
@@ -45,7 +48,7 @@ export function SelectField({
         <Pressable
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={`${label}: ${hasValue ? value : placeholder}`}
+          accessibilityLabel={`${label}: ${hasValue ? value : resolvedPlaceholder}`}
           accessibilityState={{ expanded: open }}
           style={({ pressed }) => [
             styles.trigger,
@@ -58,7 +61,7 @@ export function SelectField({
           <View style={styles.valueRow}>
             <ThemedText
               style={[styles.value, { color: hasValue ? theme.text : theme.textSecondary }]}>
-              {hasValue ? value : placeholder}
+              {hasValue ? value : resolvedPlaceholder}
             </ThemedText>
           </View>
           <ThemedText style={[styles.chevron, { color: theme.textSecondary }]}>▾</ThemedText>

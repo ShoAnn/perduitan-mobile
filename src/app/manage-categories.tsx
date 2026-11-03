@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -28,25 +29,25 @@ import {
   useCategories,
 } from '@/stores/categories';
 import type { Category, CategoryKind } from '@/types/api';
+import { categoryLabel } from '@/utils/category-names';
 
-const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
-  { value: 'expense', label: 'Expense' },
-  { value: 'income', label: 'Income' },
+const KIND_OPTIONS: { value: CategoryKind }[] = [
+  { value: 'expense' },
+  { value: 'income' },
 ];
-
-function sentenceCase(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
-function kindLabel(kind: CategoryKind): string {
-  return KIND_OPTIONS.find((option) => option.value === kind)?.label ?? kind;
-}
 
 export default function ManageCategoriesScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const db = useSQLiteContext();
   const categories = useCategories(db);
+
+  const kindOptions = KIND_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(`kinds.${option.value}`),
+  }));
+  const kindLabel = (kind: CategoryKind) => t(`kinds.${kind}`);
 
   const expenseCategories = useMemo(
     () => categories.filter((category) => category.kind === 'expense'),
@@ -105,11 +106,11 @@ export default function ManageCategoriesScreen() {
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setNameError('Enter a category name.');
+      setNameError(t('errors.categoryNameRequired'));
       return;
     }
     if (hasCategoryName(trimmedName, editingId)) {
-      setNameError('A category with this name already exists.');
+      setNameError(t('errors.categoryExists'));
       return;
     }
 
@@ -120,8 +121,8 @@ export default function ManageCategoriesScreen() {
     } catch (error) {
       setNameError(
         isUniqueConstraintError(error)
-          ? 'A category with this name already exists.'
-          : 'Could not save the category. Please try again.'
+          ? t('errors.categoryExists')
+          : t('errors.saveCategory')
       );
       setIsSaving(false);
       return;
@@ -146,7 +147,7 @@ export default function ManageCategoriesScreen() {
         setConfirmDeleteId(null);
       } catch (error) {
         console.error('Failed to delete category', error);
-        setDeleteError('Could not delete the category. Please try again.');
+        setDeleteError(t('errors.deleteCategory'));
       } finally {
         setDeletingId(null);
       }
@@ -165,6 +166,7 @@ export default function ManageCategoriesScreen() {
 
   const renderRow = (category: Category) => {
     const isConfirming = confirmDeleteId === category.id;
+    const label = categoryLabel(category.name, t);
 
     return (
       <View
@@ -172,7 +174,7 @@ export default function ManageCategoriesScreen() {
         style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
         <View style={styles.cardHead}>
           <ThemedText type="smallBold" style={styles.cardName}>
-            {sentenceCase(category.name)}
+            {label}
           </ThemedText>
 
           {isConfirming ? (
@@ -181,23 +183,23 @@ export default function ManageCategoriesScreen() {
                 onPress={() => handleDeletePress(category)}
                 disabled={deletingId !== null}
                 accessibilityRole="button"
-                accessibilityLabel={`Confirm delete ${category.name}`}
+                accessibilityLabel={t('categoryEditor.confirmDeleteAccessibility', { name: label })}
                 accessibilityState={{ disabled: deletingId !== null, busy: deletingId === category.id }}
                 hitSlop={Spacing.two}
                 style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" style={{ color: theme.negative }}>
-                  {deletingId === category.id ? 'Deleting…' : 'Delete'}
+                  {deletingId === category.id ? t('common.deleting') : t('common.delete')}
                 </ThemedText>
               </Pressable>
               <Pressable
                 onPress={() => setConfirmDeleteId(null)}
                 disabled={deletingId !== null}
                 accessibilityRole="button"
-                accessibilityLabel={`Cancel delete ${category.name}`}
+                accessibilityLabel={t('categoryEditor.cancelDeleteAccessibility', { name: label })}
                 hitSlop={Spacing.two}
                 style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             </View>
@@ -206,7 +208,7 @@ export default function ManageCategoriesScreen() {
               <Pressable
                 onPress={() => openEditor(category)}
                 accessibilityRole="button"
-                accessibilityLabel={`Edit ${category.name}`}
+                accessibilityLabel={t('categoryEditor.editAccessibility', { name: label })}
                 hitSlop={Spacing.two}
                 style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                 <ThemedText style={[styles.icon, { color: theme.textSecondary }]}>✎</ThemedText>
@@ -214,7 +216,7 @@ export default function ManageCategoriesScreen() {
               <Pressable
                 onPress={() => handleDeletePress(category)}
                 accessibilityRole="button"
-                accessibilityLabel={`Delete ${category.name}`}
+                accessibilityLabel={t('categoryEditor.deleteAccessibility', { name: label })}
                 hitSlop={Spacing.two}
                 style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                 <ThemedText style={[styles.icon, { color: theme.textSecondary }]}>🗑</ThemedText>
@@ -226,8 +228,8 @@ export default function ManageCategoriesScreen() {
         {isConfirming ? (
           <ThemedText type="small" themeColor="textSecondary">
             {deleteCount > 0
-              ? `${deleteCount} transaction${deleteCount === 1 ? '' : 's'} will keep this category.`
-              : 'No transactions use this category.'}
+              ? t('categoryEditor.transactionCount', { count: deleteCount })
+              : t('categoryEditor.noTransactions')}
           </ThemedText>
         ) : null}
       </View>
@@ -248,16 +250,16 @@ export default function ManageCategoriesScreen() {
             <View style={styles.content}>
               {editingId !== null ? (
                 <View style={[styles.editor, { backgroundColor: theme.backgroundElement }]}>
-                  <ThemedText type="smallBold">Edit category</ThemedText>
+                  <ThemedText type="smallBold">{t('categoryEditor.title')}</ThemedText>
 
                   <TextField
-                    label="Name"
+                    label={t('forms.name')}
                     value={name}
                     onChangeText={(value) => {
                       setName(value);
                       setNameError(null);
                     }}
-                    placeholder="Coffee"
+                    placeholder={t('placeholders.categoryName')}
                     autoCapitalize="words"
                     returnKeyType="done"
                     onSubmitEditing={handleSave}
@@ -266,9 +268,9 @@ export default function ManageCategoriesScreen() {
                   />
 
                   <SelectField
-                    label="Kind"
+                    label={t('forms.kind')}
                     value={kindLabel(kind)}
-                    placeholder="Select kind"
+                    placeholder={t('pickers.selectKind')}
                     onPress={openKindPicker}
                     open={isKindPickerOpen}
                   />
@@ -277,7 +279,7 @@ export default function ManageCategoriesScreen() {
                     onPress={handleSave}
                     disabled={isSaving}
                     accessibilityRole="button"
-                    accessibilityLabel="Save category"
+                    accessibilityLabel={t('buttons.saveCategory')}
                     accessibilityState={{ disabled: isSaving, busy: isSaving }}
                     style={({ pressed }) => [
                       styles.saveButton,
@@ -287,18 +289,18 @@ export default function ManageCategoriesScreen() {
                       },
                     ]}>
                     <ThemedText type="smallBold" style={{ color: theme.background }}>
-                      {isSaving ? 'Saving…' : 'Save changes'}
+                      {isSaving ? t('common.saving') : t('common.saveChanges')}
                     </ThemedText>
                   </Pressable>
 
                   <Pressable
                     onPress={closeEditor}
                     accessibilityRole="button"
-                    accessibilityLabel="Cancel editing"
+                    accessibilityLabel={t('common.cancel')}
                     hitSlop={Spacing.two}
                     style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
                     <ThemedText type="smallBold" themeColor="textSecondary">
-                      Cancel
+                      {t('common.cancel')}
                     </ThemedText>
                   </Pressable>
                 </View>
@@ -312,14 +314,14 @@ export default function ManageCategoriesScreen() {
 
               {categories.length === 0 ? (
                 <ThemedText type="small" themeColor="textSecondary">
-                  No categories yet. Add one below.
+                  {t('categoryEditor.empty')}
                 </ThemedText>
               ) : null}
 
               {expenseCategories.length > 0 ? (
                 <View style={styles.section}>
                   <ThemedText type="smallBold" themeColor="textSecondary">
-                    Expense
+                    {t('kinds.expense')}
                   </ThemedText>
                   {expenseCategories.map(renderRow)}
                 </View>
@@ -328,7 +330,7 @@ export default function ManageCategoriesScreen() {
               {incomeCategories.length > 0 ? (
                 <View style={styles.section}>
                   <ThemedText type="smallBold" themeColor="textSecondary">
-                    Income
+                    {t('kinds.income')}
                   </ThemedText>
                   {incomeCategories.map(renderRow)}
                 </View>
@@ -340,14 +342,14 @@ export default function ManageCategoriesScreen() {
                   router.push('/new-category');
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Add category"
+                accessibilityLabel={t('buttons.addCategory')}
                 style={({ pressed }) => [
                   styles.addButton,
                   { backgroundColor: theme.backgroundElement },
                   pressed && styles.pressed,
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                  + Add category
+                  + {t('buttons.addCategory')}
                 </ThemedText>
               </Pressable>
             </View>
@@ -355,10 +357,10 @@ export default function ManageCategoriesScreen() {
 
           {isKindPickerOpen ? (
             <OptionPicker
-              options={KIND_OPTIONS}
+              options={kindOptions}
               value={kind}
               onChange={handleKindChange}
-              title="Select kind"
+              title={t('pickers.selectKind')}
               onDismiss={() => setIsKindPickerOpen(false)}
             />
           ) : null}

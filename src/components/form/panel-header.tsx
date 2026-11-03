@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -16,13 +17,14 @@ type PanelHeaderProps = {
  */
 export function PanelHeader({ title, onDismiss }: PanelHeaderProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Pressable
       onPress={onDismiss}
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityHint="Tap to hide"
+      accessibilityHint={t('common.tapToHide')}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <ThemedText style={[styles.glyph, { color: theme.textSecondary }]}>▾</ThemedText>
       <ThemedText type="smallBold" themeColor="textSecondary" style={styles.title}>

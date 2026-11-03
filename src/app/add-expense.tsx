@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
   Easing,
@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategorySelectField } from '@/components/form/category-select-field';
@@ -42,18 +43,16 @@ import {
   parseAmountToCents,
   parseEditableDate,
 } from '@/utils/transactions';
-import { receiptScanUnavailableMessage, scanReceiptFromGallery } from '@/utils/receipt-scan';
+import { categoryLabel } from '@/utils/category-names';
+import { receiptScanUnavailableKey, scanReceiptFromGallery } from '@/utils/receipt-scan';
 
 /** Which bottom panel is open; the keypad and option pickers are exclusive. */
-type ActivePanel = 'amount' | 'account' | 'category' | null;
-
-function sentenceCase(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
+type ActivePanel = 'amount' | 'account' | 'category' | 'description' | null;
 
 export default function AddExpenseScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{
     amount?: string;
     occurredOn?: string;
@@ -89,6 +88,7 @@ export default function AddExpenseScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [description, setDescription] = useState(() => params.description ?? '');
+  const descriptionInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -142,6 +142,13 @@ export default function AddExpenseScreen() {
     }
   }, [categories, categoryId]);
 
+  // Advance focus into the description once a category is picked.
+  useEffect(() => {
+    if (activePanel === 'description') {
+      descriptionInputRef.current?.focus();
+    }
+  }, [activePanel]);
+
   /** Fades a scan highlight in, holds briefly, then fades it out. */
   const playScanGlow = () => {
     scanGlow.stopAnimation();
@@ -190,7 +197,7 @@ export default function AddExpenseScreen() {
   const commitDate = () => {
     const parsed = parseEditableDate(dateDraft);
     if (!parsed) {
-      setDateError('Use YYYY-MM-DD, for example 2026-10-23.');
+      setDateError(t('errors.dateFormat'));
       return;
     }
 
@@ -248,7 +255,8 @@ export default function AddExpenseScreen() {
 
   const handleCategoryChange = (value: number | null) => {
     setCategoryId(value);
-    setActivePanel(null);
+    // Advance focus to the description input.
+    setActivePanel('description');
   };
 
   const handleAddCategory = () => {
@@ -287,12 +295,12 @@ export default function AddExpenseScreen() {
       }
 
       if (result.status === 'unavailable') {
-        setScanError(receiptScanUnavailableMessage(result.reason));
+        setScanError(t(receiptScanUnavailableKey(result.reason)));
         return;
       }
 
       if (result.status === 'error') {
-        setScanError(result.message);
+        setScanError(t(result.messageKey));
         return;
       }
 
@@ -332,7 +340,7 @@ export default function AddExpenseScreen() {
       playScanGlow();
 
       if (receipt.warnings.length > 0) {
-        setScanNotice(receipt.warnings[0]);
+        setScanNotice(t(receipt.warnings[0]));
       }
     } finally {
       setIsScanning(false);
@@ -350,7 +358,7 @@ export default function AddExpenseScreen() {
     if (isEditingDate) {
       const parsed = parseEditableDate(dateDraft);
       if (!parsed) {
-        setDateError('Use YYYY-MM-DD, for example 2026-10-23.');
+        setDateError(t('errors.dateFormat'));
         return;
       }
       effectiveDate = parsed;
@@ -361,11 +369,11 @@ export default function AddExpenseScreen() {
 
     const amountCents = parseAmountToCents(amount);
     if (amountCents === null || amountCents <= 0) {
-      setAmountError('Enter an amount greater than 0.');
+      setAmountError(t('errors.amountRequired'));
       return;
     }
     if (accountId === null) {
-      setSaveError('Select an account before saving.');
+      setSaveError(t('errors.accountRequired'));
       return;
     }
 
@@ -386,7 +394,7 @@ export default function AddExpenseScreen() {
       });
     } catch (error) {
       console.error('Failed to save transaction', error);
-      setSaveError('Could not save the expense. Please try again.');
+      setSaveError(t('errors.saveExpense'));
       return;
     } finally {
       setIsSaving(false);
@@ -420,7 +428,7 @@ export default function AddExpenseScreen() {
                     style={[styles.dateGlow, { borderColor: theme.accent, opacity: scanGlow }]}
                   />
                   <ThemedText type="smallBold" themeColor="textSecondary">
-                    Date
+                    {t('forms.date')}
                   </ThemedText>
 
                   {isEditingDate ? (
@@ -435,8 +443,8 @@ export default function AddExpenseScreen() {
                       autoFocus
                       selectTextOnFocus
                       returnKeyType="done"
-                      accessibilityLabel="Date"
-                      placeholder="YYYY-MM-DD"
+                      accessibilityLabel={t('forms.date')}
+                      placeholder={t('placeholders.date')}
                       placeholderTextColor={theme.textSecondary}
                       selectionColor={theme.accent}
                       style={[styles.dateInput, { color: theme.text }]}
@@ -445,7 +453,7 @@ export default function AddExpenseScreen() {
                     <Pressable
                       onPress={startEditingDate}
                       accessibilityRole="button"
-                      accessibilityHint="Tap to edit the date"
+                      accessibilityHint={t('hints.tapToEditDate')}
                       hitSlop={Spacing.two}>
                       <ThemedText>{formatDate(occurredAt)}</ThemedText>
                     </Pressable>
@@ -463,7 +471,7 @@ export default function AddExpenseScreen() {
                 onPress={handleScanReceipt}
                 disabled={isScanning}
                 accessibilityRole="button"
-                accessibilityLabel="Choose a receipt photo"
+                accessibilityLabel={t('scan.chooseAccessibility')}
                 accessibilityState={{ disabled: isScanning, busy: isScanning }}
                 style={({ pressed }) => [
                   styles.scanButton,
@@ -480,9 +488,9 @@ export default function AddExpenseScreen() {
                 ]}>
                 <ThemedText style={{ fontSize: 20 }} themeColor="accent">▣</ThemedText>
                 <View style={{ flex: 1 }}>
-                  <ThemedText type="smallBold">Scan receipt</ThemedText>
+                  <ThemedText type="smallBold">{t('scan.scanReceipt')}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {isScanning ? 'Reading receipt…' : 'Fill expense from a photo'}
+                    {isScanning ? t('scan.readingReceipt') : t('scan.fillExpense')}
                   </ThemedText>
                 </View>
               </Pressable>
@@ -500,7 +508,7 @@ export default function AddExpenseScreen() {
               ) : null}
 
               <TextField
-                label="Amount"
+                label={t('forms.amount')}
                 prefix={selectedAccount?.currency}
                 value={amount}
                 focused={activePanel === 'amount'}
@@ -513,21 +521,21 @@ export default function AddExpenseScreen() {
                   setAmountCaret(event.nativeEvent.selection.start);
                 }}
                 onFocus={() => setActivePanel('amount')}
-                placeholder="0"
+                placeholder={t('placeholders.amount')}
                 autoFocus={!scanned}
                 error={amountError ?? undefined}
               />
 
               <SelectField
-                label="Account"
+                label={t('forms.account')}
                 value={selectedAccount?.name ?? null}
-                placeholder="Select account"
+                placeholder={t('pickers.selectAccount')}
                 onPress={openAccountPicker}
                 open={activePanel === 'account'}
               />
 
               <CategorySelectField
-                value={selectedCategory ? sentenceCase(selectedCategory.name) : null}
+                value={selectedCategory ? categoryLabel(selectedCategory.name, t) : null}
                 onPress={openCategoryPicker}
                 open={activePanel === 'category'}
                 glow={scanGlow}
@@ -535,14 +543,15 @@ export default function AddExpenseScreen() {
               />
 
               <TextField
-                label="Description"
+                label={t('forms.description')}
+                inputRef={descriptionInputRef}
                 value={description}
                 onChangeText={(value) => {
                   setDescription(value);
                 }}
                 onFocus={() => setActivePanel(null)}
                 glow={scanGlow}
-                placeholder="Weekly grocery run"
+                placeholder={t('placeholders.expenseDescription')}
                 placeholderTextColor={`${theme.textSecondary}B3`}
                 multiline
                 maxLength={280}
@@ -552,7 +561,7 @@ export default function AddExpenseScreen() {
                 onPress={handleSave}
                 disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel="Save expense"
+                accessibilityLabel={t('buttons.saveExpense')}
                 accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
@@ -562,7 +571,7 @@ export default function AddExpenseScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
-                  {isSaving ? 'Saving…' : 'Save expense'}
+                  {isSaving ? t('common.saving') : t('buttons.saveExpense')}
                 </ThemedText>
               </Pressable>
 
@@ -580,7 +589,7 @@ export default function AddExpenseScreen() {
               caret={amountCaret}
               onChange={handleAmountChange}
               onSubmit={submitAmount}
-              title="Select amount"
+              title={t('pickers.selectAmount')}
               onDismiss={dismissPanel}
             />
           ) : null}
@@ -593,11 +602,11 @@ export default function AddExpenseScreen() {
               }))}
               value={accountId}
               onChange={handleAccountChange}
-              title="Select account"
+              title={t('pickers.selectAccount')}
               onDismiss={dismissPanel}
               onAdd={handleAddAccount}
-              addLabel="Add account"
-              addAccessibilityLabel="Add account"
+              addLabel={t('buttons.addAccount')}
+              addAccessibilityLabel={t('buttons.addAccount')}
             />
           ) : null}
 
@@ -608,21 +617,21 @@ export default function AddExpenseScreen() {
                   .filter((c) => c.name.toLowerCase() === 'dining out')
                   .map((category) => ({
                     value: category.id,
-                    label: sentenceCase(category.name),
+                    label: categoryLabel(category.name, t),
                   })),
                 ...expenseCategories
                   .filter((c) => c.name.toLowerCase() !== 'dining out')
                   .map((category) => ({
                     value: category.id,
-                    label: sentenceCase(category.name),
+                    label: categoryLabel(category.name, t),
                   })),
               ]}
               value={categoryId}
               onChange={handleCategoryChange}
               onAdd={handleAddCategory}
-              addLabel="Add category"
-              addAccessibilityLabel="Add category"
-              title="Select category"
+              addLabel={t('buttons.addCategory')}
+              addAccessibilityLabel={t('buttons.addCategory')}
+              title={t('pickers.selectCategory')}
               onDismiss={dismissPanel}
             />
           ) : null}

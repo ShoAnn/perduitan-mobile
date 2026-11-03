@@ -1,19 +1,5 @@
 import type { TransactionCreate } from '@/types/api';
-
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+import { formatDisplayDate } from '@/utils/format';
 
 function pad(value: number) {
   return value.toString().padStart(2, '0');
@@ -24,9 +10,9 @@ export function toDateString(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Local date for display, for example `Oct 23, 2026`. */
+/** Locale-aware local date for display, for example `Oct 23, 2026`. */
 export function formatDate(date: Date): string {
-  return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  return formatDisplayDate(date);
 }
 
 /** Date in the format the inline date editor accepts, `YYYY-MM-DD`. */

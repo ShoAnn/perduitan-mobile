@@ -8,7 +8,7 @@ import {
 import {
   getReceiptOcrAvailability,
   readReceiptText,
-  receiptOcrErrorMessage,
+  receiptOcrErrorKey,
   type ReceiptOcrUnavailableReason,
 } from '@/utils/receipt-ocr';
 
@@ -19,7 +19,7 @@ export type ReceiptScanResult =
   | { status: 'canceled' }
   | { status: 'success'; receipt: ParsedReceipt }
   | { status: 'unavailable'; reason: ReceiptOcrUnavailableReason }
-  | { status: 'error'; message: string };
+  | { status: 'error'; messageKey: string };
 
 /**
  * Lets the user pick a receipt photo from the gallery, reads its text on the
@@ -36,9 +36,9 @@ export async function scanReceiptFromGallery(kind: ReceiptKind): Promise<Receipt
     if (!permission.granted) {
       return {
         status: 'error',
-        message: permission.canAskAgain
-          ? 'Gallery access is required to choose a receipt photo.'
-          : 'Gallery access is blocked. Enable it in Settings to choose a receipt photo.',
+        messageKey: permission.canAskAgain
+          ? 'receipt.errors.permissionRequired'
+          : 'receipt.errors.permissionBlocked',
       };
     }
 
@@ -66,13 +66,11 @@ export async function scanReceiptFromGallery(kind: ReceiptKind): Promise<Receipt
     return { status: 'success', receipt };
   } catch (error) {
     console.error('Failed to scan a receipt image', error);
-    return { status: 'error', message: receiptOcrErrorMessage(error) };
+    return { status: 'error', messageKey: receiptOcrErrorKey(error) };
   }
 }
 
-/** User-facing message for an unsupported OCR environment. */
-export function receiptScanUnavailableMessage(reason: ReceiptOcrUnavailableReason): string {
-  return reason === 'web'
-    ? 'Receipt scanning is not available on web. Enter the transaction manually.'
-    : 'This device does not support on-device text recognition. Enter the transaction manually.';
+/** i18n key for the user-facing message of an unsupported OCR environment. */
+export function receiptScanUnavailableKey(reason: ReceiptOcrUnavailableReason): string {
+  return reason === 'web' ? 'receipt.unavailableWeb' : 'receipt.unavailableDevice';
 }

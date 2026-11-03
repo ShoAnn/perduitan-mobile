@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PanelHeader } from '@/components/form/panel-header';
@@ -94,6 +95,7 @@ export function NumericKeypad({
   style,
 }: NumericKeypadProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const position = clampCaret(caret, value);
   const hasComma = value.includes(',');
   const atStart = position === 0;
@@ -169,7 +171,7 @@ export function NumericKeypad({
           ))}
           <Key
             label="⌫"
-            accessibilityLabel="Backspace"
+            accessibilityLabel={t('keypad.backspace')}
             onPress={handleBackspace}
             disabled={atStart}
             variant="secondary"
@@ -183,7 +185,7 @@ export function NumericKeypad({
           ))}
           <Key
             label=","
-            accessibilityLabel="Decimal comma"
+            accessibilityLabel={t('keypad.decimalComma')}
             onPress={handleComma}
             disabled={hasComma}
             variant="secondary"
@@ -200,7 +202,7 @@ export function NumericKeypad({
         <View style={styles.row}>
           <Key
             label="←"
-            accessibilityLabel="Move cursor left"
+            accessibilityLabel={t('keypad.moveCursorLeft')}
             onPress={() => moveCaret(-1)}
             disabled={atStart}
             variant="secondary"
@@ -209,7 +211,7 @@ export function NumericKeypad({
           <DigitKey digit="0" onPress={handleDigit} />
           <Key
             label="→"
-            accessibilityLabel="Move cursor right"
+            accessibilityLabel={t('keypad.moveCursorRight')}
             onPress={() => moveCaret(1)}
             disabled={atEnd}
             variant="secondary"
@@ -217,7 +219,7 @@ export function NumericKeypad({
           />
           <Key
             label="✓"
-            accessibilityLabel="Done"
+            accessibilityLabel={t('keypad.done')}
             onPress={() => onSubmit?.()}
             disabled={!onSubmit}
             variant="primary"
