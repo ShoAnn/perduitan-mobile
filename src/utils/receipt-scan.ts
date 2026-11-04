@@ -22,6 +22,38 @@ export type ReceiptScanResult =
   | { status: 'error'; messageKey: string };
 
 /**
+ * Reads an image the caller already has (a picked gallery asset or a file shared
+ * into the app) and parses it into the fields the transaction forms need.
+ */
+export async function scanReceiptFromUri(
+  uri: string,
+  kind: ReceiptKind
+): Promise<Exclude<ReceiptScanResult, { status: 'canceled' }>> {
+  const unavailable = getReceiptOcrAvailability();
+  if (unavailable) {
+    return { status: 'unavailable', reason: unavailable.reason };
+  }
+
+  try {
+    const ocr = await readReceiptText(uri);
+    if (!ocr.supported) {
+      return { status: 'unavailable', reason: ocr.reason };
+    }
+
+    const receipt = parseReceiptText(ocr.text, { kind });
+    if (DEBUG_RECEIPT_SCAN) {
+      console.log('[receipt-scan] raw OCR text:\n' + ocr.text);
+      console.log('[receipt-scan] parsed receipt', receipt);
+    }
+
+    return { status: 'success', receipt };
+  } catch (error) {
+    console.error('Failed to scan a receipt image', error);
+    return { status: 'error', messageKey: receiptOcrErrorKey(error) };
+  }
+}
+
+/**
  * Lets the user pick a receipt photo from the gallery, reads its text on the
  * device, and parses it into the fields the transaction forms need.
  */
@@ -52,18 +84,7 @@ export async function scanReceiptFromGallery(kind: ReceiptKind): Promise<Receipt
       return { status: 'canceled' };
     }
 
-    const ocr = await readReceiptText(asset.uri);
-    if (!ocr.supported) {
-      return { status: 'unavailable', reason: ocr.reason };
-    }
-
-    const receipt = parseReceiptText(ocr.text, { kind });
-    if (DEBUG_RECEIPT_SCAN) {
-      console.log('[receipt-scan] raw OCR text:\n' + ocr.text);
-      console.log('[receipt-scan] parsed receipt', receipt);
-    }
-
-    return { status: 'success', receipt };
+    return scanReceiptFromUri(asset.uri, kind);
   } catch (error) {
     console.error('Failed to scan a receipt image', error);
     return { status: 'error', messageKey: receiptOcrErrorKey(error) };

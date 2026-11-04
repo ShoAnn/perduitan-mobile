@@ -58,6 +58,7 @@ export default function AddIncomeScreen() {
     description?: string;
     categoryName?: string;
     scanned?: string;
+    scanNotice?: string;
   }>();
   const db = useSQLiteContext();
 
@@ -101,7 +102,9 @@ export default function AddIncomeScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [scanNotice, setScanNotice] = useState<string | null>(null);
+  const [scanNotice, setScanNotice] = useState<string | null>(
+    params.scanNotice ? t(params.scanNotice) : null
+  );
 
   const lastUsedAccount =
     lastUsedAccountId !== null && accounts.some((account) => account.id === lastUsedAccountId)

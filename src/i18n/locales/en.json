@@ -141,6 +141,14 @@
     "noAccountTransactionsIn": "No {{kind}} transactions for {{account}} in {{month}}.",
     "rowAccessibility": "{{category}}, {{kind}}"
   },
+  "analytics": {
+    "total": "Total",
+    "percentOfTotal": "{{percent}} of total",
+    "categoryCount_one": "{{count}} category",
+    "categoryCount_other": "{{count}} categories",
+    "noData": "No {{kind}} transactions to chart yet.",
+    "sliceAccessibility": "{{category}}, {{amount}}, {{percent}} of total"
+  },
   "transaction": {
     "type": "Type",
     "account": "Account",
@@ -216,5 +224,13 @@
     "language": "Language",
     "english": "English",
     "indonesian": "Bahasa Indonesia"
+  },
+  "share": {
+    "title": "Import receipt",
+    "prompt": "Add this receipt as…",
+    "addExpense": "Add expense",
+    "addIncome": "Add income",
+    "noImage": "No image was shared. Try sharing a receipt photo.",
+    "goHome": "Go home"
   }
 }

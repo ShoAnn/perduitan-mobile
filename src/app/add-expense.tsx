@@ -59,6 +59,7 @@ export default function AddExpenseScreen() {
     description?: string;
     categoryName?: string;
     scanned?: string;
+    scanNotice?: string;
   }>();
   const db = useSQLiteContext();
 
@@ -93,7 +94,9 @@ export default function AddExpenseScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [scanNotice, setScanNotice] = useState<string | null>(null);
+  const [scanNotice, setScanNotice] = useState<string | null>(
+    params.scanNotice ? t(params.scanNotice) : null
+  );
 
   // Prefer the last used account, then fall back to the first stored account.
   const lastUsedAccount =

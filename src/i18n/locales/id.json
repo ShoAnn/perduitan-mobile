@@ -140,6 +140,13 @@
     "noAccountTransactionsIn": "Belum ada transaksi {{kind}} untuk {{account}} pada {{month}}.",
     "rowAccessibility": "{{category}}, {{kind}}"
   },
+  "analytics": {
+    "total": "Total",
+    "percentOfTotal": "{{percent}} dari total",
+    "categoryCount_other": "{{count}} kategori",
+    "noData": "Belum ada transaksi {{kind}} untuk ditampilkan.",
+    "sliceAccessibility": "{{category}}, {{amount}}, {{percent}} dari total"
+  },
   "transaction": {
     "type": "Jenis",
     "account": "Akun",
@@ -215,5 +222,13 @@
     "language": "Bahasa",
     "english": "English",
     "indonesian": "Bahasa Indonesia"
+  },
+  "share": {
+    "title": "Impor struk",
+    "prompt": "Tambahkan struk ini sebagai…",
+    "addExpense": "Tambah pengeluaran",
+    "addIncome": "Tambah pemasukan",
+    "noImage": "Tidak ada gambar yang dibagikan. Coba bagikan foto struk.",
+    "goHome": "Ke beranda"
   }
 }

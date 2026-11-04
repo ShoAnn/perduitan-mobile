@@ -78,6 +78,15 @@
             "id"
           ]
         }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "disableIOS": true,
+          "androidIntentFilters": [
+            "image/*"
+          ]
+        }
       ]
     ],
     "experiments": {

@@ -67,7 +67,7 @@ export default function HistoryScreen() {
   const [tab, setTab] = useState<Tab>('expense');
   const [transactions, setTransactions] = useState<Awaited<ReturnType<typeof listTransactions>>>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => monthKey(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState<string>(ALL_TIME);
   // `undefined` means the filter still follows the last used account. Once the
   // user picks one (including "All accounts") their choice takes over.
   const [accountFilter, setAccountFilter] = useState<number | null | undefined>(undefined);
