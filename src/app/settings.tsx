@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SelectField } from '@/components/form/select-field';
@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { THEME_MODES, useThemeMode, type ThemeMode } from '@/hooks/use-theme-mode';
 import { setAppLanguage, SUPPORTED_LANGUAGES, type AppLanguage } from '@/i18n';
 
 const LANGUAGE_LABEL_KEYS: Record<AppLanguage, string> = {
@@ -15,35 +16,58 @@ const LANGUAGE_LABEL_KEYS: Record<AppLanguage, string> = {
   id: 'settings.indonesian',
 };
 
+const THEME_LABEL_KEYS: Record<ThemeMode, string> = {
+  system: 'settings.system',
+  light: 'settings.light',
+  dark: 'settings.dark',
+};
+
+type OpenPicker = 'language' | 'theme' | null;
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const { t, i18n } = useTranslation();
   const current: AppLanguage = (i18n.language ?? 'en').startsWith('id') ? 'id' : 'en';
-  const [isOpen, setIsOpen] = useState(false);
+  const [themeMode, setThemeMode] = useThemeMode();
+  const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
 
-  const options = SUPPORTED_LANGUAGES.map((language) => ({
+  const languageOptions = SUPPORTED_LANGUAGES.map((language) => ({
     value: language,
     label: t(LANGUAGE_LABEL_KEYS[language]),
   }));
 
-  const handleSelect = (value: AppLanguage) => {
+  const themeOptions = THEME_MODES.map((mode) => ({
+    value: mode,
+    label: t(THEME_LABEL_KEYS[mode]),
+  }));
+
+  const handleLanguageSelect = (value: AppLanguage) => {
     setAppLanguage(value);
-    setIsOpen(false);
+    setOpenPicker(null);
+  };
+
+  const handleThemeSelect = (value: ThemeMode) => {
+    setThemeMode(value);
+    setOpenPicker(null);
+  };
+
+  const togglePicker = (picker: Exclude<OpenPicker, null>) => {
+    setOpenPicker((open) => (open === picker ? null : picker));
   };
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
-        <View style={styles.content}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
           <View style={styles.fieldWrapper}>
             <SelectField
               label={t('settings.language')}
               value={t(LANGUAGE_LABEL_KEYS[current])}
-              onPress={() => setIsOpen((open) => !open)}
-              open={isOpen}
+              onPress={() => togglePicker('language')}
+              open={openPicker === 'language'}
             />
 
-            {isOpen ? (
+            {openPicker === 'language' ? (
               <View
                 style={[
                   styles.menu,
@@ -52,13 +76,13 @@ export default function SettingsScreen() {
                     borderColor: theme.backgroundSelected,
                   },
                 ]}>
-                {options.map((option) => {
+                {languageOptions.map((option) => {
                   const selected = option.value === current;
 
                   return (
                     <Pressable
                       key={option.value}
-                      onPress={() => handleSelect(option.value)}
+                      onPress={() => handleLanguageSelect(option.value)}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
                       accessibilityLabel={option.label}
@@ -81,7 +105,54 @@ export default function SettingsScreen() {
               </View>
             ) : null}
           </View>
-        </View>
+
+          <View style={styles.fieldWrapper}>
+            <SelectField
+              label={t('settings.theme')}
+              value={t(THEME_LABEL_KEYS[themeMode])}
+              onPress={() => togglePicker('theme')}
+              open={openPicker === 'theme'}
+            />
+
+            {openPicker === 'theme' ? (
+              <View
+                style={[
+                  styles.menu,
+                  {
+                    backgroundColor: theme.backgroundElement,
+                    borderColor: theme.backgroundSelected,
+                  },
+                ]}>
+                {themeOptions.map((option) => {
+                  const selected = option.value === themeMode;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => handleThemeSelect(option.value)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={option.label}
+                      style={({ pressed }) => [
+                        styles.menuItem,
+                        selected && { backgroundColor: theme.backgroundSelected },
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText type={selected ? 'smallBold' : 'default'}>
+                        {option.label}
+                      </ThemedText>
+                      {selected ? (
+                        <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                          ✓
+                        </ThemedText>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -92,7 +163,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: 520,
     alignSelf: 'center',
@@ -101,13 +172,8 @@ const styles = StyleSheet.create({
   },
   fieldWrapper: {
     position: 'relative',
-    zIndex: 10,
   },
   menu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     marginTop: Spacing.two,
     borderRadius: Spacing.three,
     borderWidth: 1,

@@ -23,6 +23,7 @@ export default function SharedReceiptScreen() {
   const theme = useTheme();
   const { isReady, shareIntent, resetShareIntent } = useShareIntentContext();
   const [isScanning, setIsScanning] = useState(false);
+  const [hasImported, setHasImported] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const files = shareIntent.files ?? [];
@@ -95,6 +96,10 @@ export default function SharedReceiptScreen() {
       params.scanNotice = receipt.warnings[0];
     }
 
+    // Claim ownership before clearing the payload so the re-render that
+    // removes `image` shows a spinner instead of the no-image branch while
+    // navigation to the form is in flight.
+    setHasImported(true);
     resetShareIntent();
     logShareIntent('import succeeded, opening form', {
       pathname: kind === 'income' ? '/add-income' : '/add-expense',
@@ -106,7 +111,7 @@ export default function SharedReceiptScreen() {
     });
   };
 
-  if (!isReady) {
+  if (!isReady || hasImported) {
     return (
       <ThemedView style={styles.centered}>
         <ActivityIndicator />

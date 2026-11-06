@@ -42,11 +42,34 @@ export function parseEditableDate(value: string): Date | null {
 }
 
 /**
- * Parses a positive major-unit amount (`45.99` or `45,99`) into integer cents.
- * Returns `null` for invalid input.
+ * Groups the integer part of an editing amount with `.` thousands
+ * separators, keeping the `,` decimal part untouched. Empty or decimal-only
+ * values pass through unchanged.
+ */
+export function formatAmountWithSeparators(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  const commaIndex = value.indexOf(',');
+  const integerPart = commaIndex === -1 ? value : value.slice(0, commaIndex);
+  const decimals = commaIndex === -1 ? '' : value.slice(commaIndex);
+
+  if (!/^\d+$/.test(integerPart)) {
+    return value;
+  }
+
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return grouped + decimals;
+}
+
+/**
+ * Parses a positive major-unit amount (`45.99`, `1.234,5` or `45,99`) into
+ * integer cents. Grouped thousands dots are stripped. Returns `null` for
+ * invalid input.
  */
 export function parseAmountToCents(value: string): number | null {
-  const normalized = value.trim().replace(',', '.');
+  const normalized = value.trim().replace(/\./g, '').replace(',', '.');
   if (!/^\d{1,12}(\.\d{1,2})?$/.test(normalized)) {
     return null;
   }
@@ -55,11 +78,13 @@ export function parseAmountToCents(value: string): number | null {
 
 /**
  * Formats signed cents for the amount field, using the comma decimal
- * separator the numeric keypad expects. Trailing zero decimals are dropped.
+ * separator the numeric keypad expects. Thousands are grouped with `.` and
+ * trailing zero decimals are dropped.
  */
 export function formatCentsForEditing(amountCents: number): string {
   const value = (Math.abs(amountCents) / 100).toFixed(2);
-  return value.replace(/\.00$/, '').replace('.', ',');
+  const raw = value.replace(/\.00$/, '').replace('.', ',');
+  return formatAmountWithSeparators(raw);
 }
 
 type ExpenseInput = {

@@ -15,6 +15,33 @@ export function formatCurrency(amountCents: number, currency = 'IDR'): string {
   }).format(Math.abs(amountCents) / 100);
 }
 
+/**
+ * Compact currency for tight spaces (chart centre), e.g. `IDR 1.5M` /
+ * `Rp 1,5 jt`. Below one million it falls back to full `formatCurrency`.
+ */
+export function formatCompactCurrency(amountCents: number, currency = 'IDR'): string {
+  const amount = Math.abs(amountCents) / 100;
+  if (amount < 1_000_000) {
+    return formatCurrency(amountCents, currency);
+  }
+
+  const locale = currentLocale();
+  const isId = locale.startsWith('id');
+  const isBillion = amount >= 1_000_000_000;
+  const value = amount / (isBillion ? 1_000_000_000 : 1_000_000);
+  const suffix = isBillion ? (isId ? 'M' : 'B') : isId ? 'jt' : 'M';
+  const formatted = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  }).format(value);
+  const prefix = new Intl.NumberFormat(locale, { style: 'currency', currency })
+    .format(0)
+    .replace(/[0-9\s.,]/g, '')
+    .trim();
+
+  return `${prefix} ${formatted}${isId ? ` ${suffix}` : suffix}`;
+}
+
 /** Plain grouping for the given value, e.g. `1.234.567`. */
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat(currentLocale()).format(value);

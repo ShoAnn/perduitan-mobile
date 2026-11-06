@@ -17,6 +17,7 @@ import { ActionButton } from '@/components/action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, MaxContentWidth } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { archiveAccount } from '@/db/accounts';
 import { getAccountBalance } from '@/db/transactions';
 import { refreshAccounts, useAccounts } from '@/stores/accounts';
@@ -26,9 +27,11 @@ import {
 } from '@/stores/last-used-account';
 import { formatCurrency, formatNumber } from '@/utils/format';
 import { useCallback, useRef, useState } from 'react';
+import Svg, { Circle, Rect } from 'react-native-svg';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const db = useSQLiteContext();
   const { t } = useTranslation();
   const accounts = useAccounts(db);
@@ -147,7 +150,20 @@ export default function HomeScreen() {
               accessibilityLabel={t('navigation.settings')}
               hitSlop={Spacing.two}
               style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
-              <ThemedText style={styles.headerIcon}>⚙︎</ThemedText>
+              <Svg width={26} height={26} viewBox="0 0 24 24">
+                {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+                  <Rect
+                    key={angle}
+                    x={10}
+                    y={1}
+                    width={4}
+                    height={7}
+                    fill={theme.text}
+                    transform={`rotate(${angle} 12 12)`}
+                  />
+                ))}
+                <Circle cx={12} cy={12} r={6} fill="none" stroke={theme.text} strokeWidth={4} />
+              </Svg>
             </Pressable>
           ),
         }}
@@ -397,10 +413,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerIcon: {
-    fontSize: 20,
-    lineHeight: 24,
   },
   pressed: {
     opacity: 0.7,

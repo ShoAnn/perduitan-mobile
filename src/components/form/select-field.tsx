@@ -22,7 +22,7 @@ type SelectFieldProps = {
   trailing?: ReactNode;
 };
 
-/** A read-only select input: one centered block with a chevron on the right. */
+/** A read-only select input: one centered block for the selected option. */
 export function SelectField({
   label,
   value,
@@ -64,7 +64,6 @@ export function SelectField({
               {hasValue ? value : resolvedPlaceholder}
             </ThemedText>
           </View>
-          <ThemedText style={[styles.chevron, { color: theme.textSecondary }]}>▾</ThemedText>
           {glow ? (
             <Animated.View
               pointerEvents="none"
@@ -123,12 +122,6 @@ const styles = StyleSheet.create({
   },
   value: {
     textAlign: 'center',
-  },
-  chevron: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: 600,
-    marginLeft: Spacing.two,
   },
   pressed: {
     opacity: 0.7,

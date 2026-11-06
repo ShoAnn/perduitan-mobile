@@ -10,6 +10,8 @@ export type TextFieldProps = TextInputProps & {
   error?: string;
   hint?: string;
   prefix?: string;
+  /** `large` enlarges the input text and field height, e.g. for amount fields. */
+  size?: 'default' | 'large';
   /** Override the focus highlight; defaults to tracking real input focus. */
   focused?: boolean;
   /** Fades a highlight border in and out, e.g. after a receipt scan fills the field. */
@@ -23,6 +25,7 @@ export function TextField({
   error,
   hint,
   prefix,
+  size = 'default',
   multiline,
   focused,
   glow,
@@ -35,6 +38,7 @@ export function TextField({
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const highlighted = focused ?? isFocused;
+  const large = size === 'large';
 
   return (
     <View style={styles.container}>
@@ -45,6 +49,7 @@ export function TextField({
       <View
         style={[
           styles.inputWrapper,
+          large && styles.inputWrapperLarge,
           {
             backgroundColor: theme.backgroundElement,
             borderColor: highlighted ? theme.accent : 'transparent',
@@ -52,7 +57,10 @@ export function TextField({
           multiline && styles.inputWrapperMultiline,
         ]}>
         {prefix ? (
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <ThemedText
+            type={large ? undefined : 'smallBold'}
+            themeColor="textSecondary"
+            style={large ? styles.prefixLarge : undefined}>
             {prefix}
           </ThemedText>
         ) : null}
@@ -71,6 +79,7 @@ export function TextField({
           }}
           style={[
             styles.input,
+            large && styles.inputLarge,
             { color: theme.text },
             multiline && styles.inputMultiline,
             style,
@@ -116,6 +125,15 @@ const styles = StyleSheet.create({
   inputWrapperMultiline: {
     alignItems: 'flex-start',
   },
+  inputWrapperLarge: {
+    minHeight: 76,
+    paddingVertical: Spacing.three,
+  },
+  prefixLarge: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '700',
+  },
   glowBorder: {
     position: 'absolute',
     top: 0,
@@ -130,6 +148,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     paddingVertical: Spacing.two,
+  },
+  inputLarge: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '600',
+    paddingVertical: Spacing.one,
   },
   inputMultiline: {
     minHeight: 88,

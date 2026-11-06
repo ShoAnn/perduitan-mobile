@@ -5,6 +5,7 @@ import { PanelHeader } from '@/components/form/panel-header';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatAmountWithSeparators } from '@/utils/transactions';
 
 /** Height of a standard, medium-sized phone keyboard. */
 export const DEFAULT_KEYPAD_HEIGHT = 260;
@@ -40,18 +41,47 @@ function clampCaret(caret: number, value: string) {
   return Math.min(Math.max(caret, 0), value.length);
 }
 
-/** Matches a partially entered amount such as ``, `12`, `12,` or `12,50`. */
-function isAmount(value: string, maxIntegerDigits: number, maxDecimals: number) {
+/** Matches a partially entered amount such as ``, `12`, `12,` or `12,50` (raw, ungrouped). */
+function isRawAmount(value: string, maxIntegerDigits: number, maxDecimals: number) {
   return new RegExp(
     `^(?:\\d{0,${maxIntegerDigits}}|\\d{1,${maxIntegerDigits}},\\d{0,${maxDecimals}})$`
   ).test(value);
 }
 
-function insertAt(value: string, caret: number, text: string): NumericKeypadChange {
-  return {
-    value: value.slice(0, caret) + text + value.slice(caret),
-    caret: caret + text.length,
-  };
+function toRawValue(value: string): string {
+  return value.replace(/\./g, '');
+}
+
+/** Counts digits in the grouped value before `caret`; separators are skipped. */
+function toRawCaret(value: string, caret: number): number {
+  return value.slice(0, caret).replace(/\./g, '').length;
+}
+
+/** Maps a raw caret (index in the ungrouped string) back to a grouped index. */
+function toGroupedCaret(grouped: string, rawCaret: number): number {
+  if (rawCaret <= 0) {
+    return 0;
+  }
+
+  let rawCount = 0;
+  for (let i = 0; i < grouped.length; i++) {
+    if (grouped[i] !== '.') {
+      rawCount++;
+    }
+    if (rawCount === rawCaret) {
+      // Land right after the character; step past a following separator so
+      // the caret never sits on a thousands dot.
+      return grouped[i + 1] === '.' ? i + 2 : i + 1;
+    }
+  }
+
+  return grouped.length;
+}
+
+/** Groups a raw amount and maps the raw caret into the grouped string. */
+function toGroupedChange(rawValue: string, rawCaret: number): NumericKeypadChange {
+  const grouped = formatAmountWithSeparators(rawValue);
+  return { value: grouped, caret: toGroupedCaret(grouped, rawCaret) };
 }
 
 /**
@@ -108,10 +138,15 @@ export function NumericKeypad({
   };
 
   const handleDigit = (digit: string) => {
-    const inserted = insertAt(value, position, digit);
+    const rawValue = toRawValue(value);
+    const rawCaret = toRawCaret(value, position);
+    const inserted = {
+      value: rawValue.slice(0, rawCaret) + digit + rawValue.slice(rawCaret),
+      caret: rawCaret + digit.length,
+    };
     const change = normalizeLeadingZeros(inserted.value, inserted.caret);
-    if (isAmount(change.value, maxIntegerDigits, maxDecimals)) {
-      commit(change);
+    if (isRawAmount(change.value, maxIntegerDigits, maxDecimals)) {
+      commit(toGroupedChange(change.value, change.caret));
     }
   };
 
@@ -121,12 +156,20 @@ export function NumericKeypad({
     }
 
     // Keep the value parseable: a leading comma becomes `0,`.
+    const rawValue = toRawValue(value);
+    const rawCaret = toRawCaret(value, position);
     const change =
-      position === 0
-        ? { value: `0,${value.slice(value.startsWith('0') ? 1 : 0)}`, caret: 2 }
-        : insertAt(value, position, ',');
-    if (isAmount(change.value, maxIntegerDigits, maxDecimals)) {
-      commit(change);
+      rawCaret === 0
+        ? {
+            value: `0,${rawValue.startsWith('0') ? rawValue.slice(1) : rawValue}`,
+            caret: 2,
+          }
+        : {
+            value: rawValue.slice(0, rawCaret) + ',' + rawValue.slice(rawCaret),
+            caret: rawCaret + 1,
+          };
+    if (isRawAmount(change.value, maxIntegerDigits, maxDecimals)) {
+      commit(toGroupedChange(change.value, change.caret));
     }
   };
 
@@ -135,18 +178,27 @@ export function NumericKeypad({
       return;
     }
 
+    const rawValue = toRawValue(value);
+    const rawCaret = toRawCaret(value, position);
+    if (rawCaret === 0) {
+      return;
+    }
+
     const deleted = {
-      value: value.slice(0, position - 1) + value.slice(position),
-      caret: position - 1,
+      value: rawValue.slice(0, rawCaret - 1) + rawValue.slice(rawCaret),
+      caret: rawCaret - 1,
     };
     const change = normalizeLeadingZeros(deleted.value, deleted.caret);
-    if (isAmount(change.value, maxIntegerDigits, maxDecimals)) {
-      commit(change);
+    if (isRawAmount(change.value, maxIntegerDigits, maxDecimals)) {
+      commit(toGroupedChange(change.value, change.caret));
     }
   };
 
   const moveCaret = (delta: number) => {
-    const next = clampCaret(position + delta, value);
+    const rawCaret = toRawCaret(value, position);
+    const nextRawCaret = Math.min(Math.max(rawCaret + delta, 0), toRawValue(value).length);
+    const grouped = formatAmountWithSeparators(toRawValue(value));
+    const next = toGroupedCaret(grouped, nextRawCaret);
     if (next !== position) {
       commit({ value, caret: next });
     }

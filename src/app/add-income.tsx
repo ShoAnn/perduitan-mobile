@@ -502,6 +502,7 @@ export default function AddIncomeScreen() {
 
               <TextField
                 label={t('forms.amount')}
+                size="large"
                 prefix={selectedAccount?.currency}
                 value={amount}
                 focused={activePanel === 'amount'}

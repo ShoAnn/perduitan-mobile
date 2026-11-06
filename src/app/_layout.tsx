@@ -17,7 +17,6 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
-  const router = useRouter();
 
   return (
     <ShareIntentProvider
@@ -25,7 +24,10 @@ export default function RootLayout() {
         // Share-intent debug logs follow the same testing flag as the scanner.
         debug: DEBUG_SHARE_INTENT,
         resetOnBackground: true,
-        onResetShareIntent: () => router.replace('/'),
+        // No onResetShareIntent auto-redirect: resetShareIntent() fires it
+        // synchronously, so redirecting to '/' here would race the form
+        // navigation in shared-receipt (double replace, form route lost).
+        // shared-receipt owns navigation after a manual reset.
       }}>
       <ShareIntentRedirect />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

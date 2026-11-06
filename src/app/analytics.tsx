@@ -12,7 +12,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { listTransactions, type TransactionWithNames } from '@/db/transactions';
 import { useTheme } from '@/hooks/use-theme';
 import { categoryLabel } from '@/utils/category-names';
-import { formatCurrency, formatNumber } from '@/utils/format';
+import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format';
 
 type Tab = 'expense' | 'income';
 
@@ -318,8 +318,12 @@ export default function AnalyticsScreen() {
                     <ThemedText type="small" themeColor="textSecondary">
                       {selectedSlice ? labelFor(selectedSlice.categoryName) : t('analytics.total')}
                     </ThemedText>
-                    <ThemedText style={styles.centerAmount}>
-                      {formatCurrency(selectedSlice ? selectedSlice.amount : total)}
+                    <ThemedText
+                      style={styles.centerAmount}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}>
+                      {formatCompactCurrency(selectedSlice ? selectedSlice.amount : total)}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {selectedSlice

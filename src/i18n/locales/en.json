@@ -226,7 +226,11 @@
     "title": "Settings",
     "language": "Language",
     "english": "English",
-    "indonesian": "Bahasa Indonesia"
+    "indonesian": "Bahasa Indonesia",
+    "theme": "Appearance",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
   },
   "share": {
     "title": "Import receipt",

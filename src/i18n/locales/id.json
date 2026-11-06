@@ -224,7 +224,11 @@
     "title": "Pengaturan",
     "language": "Bahasa",
     "english": "English",
-    "indonesian": "Bahasa Indonesia"
+    "indonesian": "Bahasa Indonesia",
+    "theme": "Tampilan",
+    "system": "Sistem",
+    "light": "Terang",
+    "dark": "Gelap"
   },
   "share": {
     "title": "Impor struk",
