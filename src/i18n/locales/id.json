@@ -159,6 +159,8 @@
     "expense": "Pengeluaran",
     "unknownAccount": "Akun tidak dikenal",
     "editAccessibility": "Ubah transaksi",
+    "deleteAccessibility": "Hapus transaksi",
+    "deleteConfirmMessage": "Transaksi ini akan dihapus secara permanen.",
     "notFound": "Transaksi ini tidak dapat ditemukan."
   },
   "scan": {
@@ -180,7 +182,8 @@
     "saveAccount": "Tidak dapat menyimpan akun. Coba lagi.",
     "saveCategory": "Tidak dapat menyimpan kategori. Coba lagi.",
     "saveChanges": "Tidak dapat menyimpan perubahan. Coba lagi.",
-    "deleteCategory": "Tidak dapat menghapus kategori. Coba lagi."
+    "deleteCategory": "Tidak dapat menghapus kategori. Coba lagi.",
+    "deleteTransaction": "Tidak dapat menghapus transaksi. Coba lagi."
   },
   "categories": {
     "salary": "Gaji",

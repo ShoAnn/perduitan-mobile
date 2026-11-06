@@ -1,13 +1,14 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
-import { ShareIntentProvider } from 'expo-share-intent';
-import { Suspense } from 'react';
+import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
+import { Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
 import '@/i18n';
+import { DEBUG_SHARE_INTENT, logShareIntent } from '@/utils/share-intent-log';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -22,11 +23,11 @@ export default function RootLayout() {
     <ShareIntentProvider
       options={{
         // Share-intent debug logs follow the same testing flag as the scanner.
-        debug: process.env.EXPO_PUBLIC_DEBUG_RECEIPT_SCAN === '1',
+        debug: DEBUG_SHARE_INTENT,
         resetOnBackground: true,
         onResetShareIntent: () => router.replace('/'),
-      }}
-    >
+      }}>
+      <ShareIntentRedirect />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Suspense fallback={<DatabaseFallback />}>
           <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded} useSuspense>
@@ -63,6 +64,28 @@ export default function RootLayout() {
       </ThemeProvider>
     </ShareIntentProvider>
   );
+}
+
+/**
+ * Android share intents never arrive as a deeplink — `expo-share-intent` polls
+ * the native module and only fills the context. Without this listener the
+ * payload sits unused on the home screen. (`+native-intent.ts` covers iOS,
+ * where the share arrives as a `dataUrl=` deeplink.)
+ */
+function ShareIntentRedirect() {
+  const { isReady, hasShareIntent } = useShareIntentContext();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isReady || !hasShareIntent || pathname === '/shared-receipt') {
+      return;
+    }
+    logShareIntent('routing to /shared-receipt from', pathname);
+    router.replace('/shared-receipt');
+  }, [isReady, hasShareIntent, pathname, router]);
+
+  return null;
 }
 
 function DatabaseFallback() {

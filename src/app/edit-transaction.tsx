@@ -28,6 +28,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { listAllAccounts } from '@/db/accounts';
 import {
+  deleteTransaction,
   getTransactionById,
   updateTransaction,
   type TransactionWithNames,
@@ -84,6 +85,9 @@ export default function EditTransactionScreen() {
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Reload accounts on focus so a newly created account is available when the
   // user comes back from the "Add account" form.
@@ -234,7 +238,7 @@ export default function EditTransactionScreen() {
   };
 
   const handleSave = async () => {
-    if (isSaving || !transaction) {
+    if (isSaving || isDeleting || !transaction) {
       return;
     }
 
@@ -290,6 +294,48 @@ export default function EditTransactionScreen() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!transaction || isDeleting || isSaving) {
+      return;
+    }
+
+    setDeleteError(null);
+    setIsDeleting(true);
+    try {
+      await deleteTransaction(db, transaction.id);
+    } catch (error) {
+      console.error('Failed to delete transaction', error);
+      setDeleteError(t('errors.deleteTransaction'));
+      setIsDeleting(false);
+      return;
+    }
+    setIsDeleting(false);
+    setIsConfirmingDelete(false);
+
+    dismissPanel();
+
+    // Replace instead of going back: the details screen underneath
+    // (which opened this form) would otherwise show a not-found state.
+    router.replace('/');
+  };
+
+  const handleDeletePress = () => {
+    if (isDeleting || isSaving || !transaction) {
+      return;
+    }
+
+    dismissPanel();
+    setDeleteError(null);
+
+    // Two-tap confirm, matching the account/category delete pattern.
+    if (!isConfirmingDelete) {
+      setIsConfirmingDelete(true);
+      return;
+    }
+
+    void confirmDelete();
+  };
+
   if (transactionId === null || transaction === null) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
@@ -313,7 +359,58 @@ export default function EditTransactionScreen() {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen
-        options={{ title: isIncome ? t('navigation.editIncome') : t('navigation.editExpense') }}
+        options={{
+          title: isIncome ? t('navigation.editIncome') : t('navigation.editExpense'),
+          headerRight: () =>
+            isConfirmingDelete ? (
+              <View style={styles.confirmActions}>
+                <Pressable
+                  onPress={handleDeletePress}
+                  disabled={isDeleting || isSaving}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('transaction.deleteAccessibility')}
+                  accessibilityState={{ disabled: isDeleting || isSaving, busy: isDeleting }}
+                  hitSlop={Spacing.two}
+                  style={({ pressed }) => [
+                    styles.headerButton,
+                    (isDeleting || isSaving) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" style={{ color: theme.negative }}>
+                    {isDeleting ? t('common.deleting') : t('common.confirmDelete')}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => setIsConfirmingDelete(false)}
+                  disabled={isDeleting || isSaving}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.cancel')}
+                  hitSlop={Spacing.two}
+                  style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    {t('common.cancel')}
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={handleDeletePress}
+                disabled={isDeleting || isSaving}
+                accessibilityRole="button"
+                accessibilityLabel={t('transaction.deleteAccessibility')}
+                accessibilityState={{ disabled: isDeleting || isSaving, busy: isDeleting }}
+                hitSlop={Spacing.two}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  (isDeleting || isSaving) && styles.disabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.negative }}>
+                  {t('common.delete')}
+                </ThemedText>
+              </Pressable>
+            ),
+        }}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -423,15 +520,15 @@ export default function EditTransactionScreen() {
 
               <Pressable
                 onPress={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isDeleting}
                 accessibilityRole="button"
                 accessibilityLabel={t('buttons.saveChanges')}
-                accessibilityState={{ disabled: isSaving, busy: isSaving }}
+                accessibilityState={{ disabled: isSaving || isDeleting, busy: isSaving }}
                 style={({ pressed }) => [
                   styles.saveButton,
                   {
                     backgroundColor: theme.text,
-                    opacity: isSaving ? 0.6 : pressed ? 0.8 : 1,
+                    opacity: isSaving || isDeleting ? 0.6 : pressed ? 0.8 : 1,
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.background }}>
@@ -439,9 +536,21 @@ export default function EditTransactionScreen() {
                 </ThemedText>
               </Pressable>
 
+              {isConfirmingDelete ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t('transaction.deleteConfirmMessage')}
+                </ThemedText>
+              ) : null}
+
               {saveError ? (
                 <ThemedText type="small" style={{ color: theme.negative }}>
                   {saveError}
+                </ThemedText>
+              ) : null}
+
+              {deleteError ? (
+                <ThemedText type="small" style={{ color: theme.negative }}>
+                  {deleteError}
                 </ThemedText>
               ) : null}
             </View>
@@ -538,5 +647,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
+  },
+  headerButton: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });

@@ -113,3 +113,12 @@ export async function updateTransaction(
     throw new Error('Transaction not found');
   }
 }
+
+/** Mirrors `DELETE /transactions/{transactionId}`. Permanently deletes the row. */
+export async function deleteTransaction(db: SQLiteDatabase, id: number): Promise<void> {
+  const result = await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
+
+  if (result.changes === 0) {
+    throw new Error('Transaction not found');
+  }
+}

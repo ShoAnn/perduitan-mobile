@@ -161,6 +161,8 @@
     "expense": "Expense",
     "unknownAccount": "Unknown account",
     "editAccessibility": "Edit transaction",
+    "deleteAccessibility": "Delete transaction",
+    "deleteConfirmMessage": "This transaction will be permanently deleted.",
     "notFound": "This transaction could not be found."
   },
   "scan": {
@@ -182,7 +184,8 @@
     "saveAccount": "Could not save the account. Please try again.",
     "saveCategory": "Could not save the category. Please try again.",
     "saveChanges": "Could not save the changes. Please try again.",
-    "deleteCategory": "Could not delete the category. Please try again."
+    "deleteCategory": "Could not delete the category. Please try again.",
+    "deleteTransaction": "Could not delete the transaction. Please try again."
   },
   "categories": {
     "salary": "Salary",

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useShareIntentContext } from 'expo-share-intent';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 
@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { ReceiptKind } from '@/utils/receipt-parser';
 import { receiptScanUnavailableKey, scanReceiptFromUri } from '@/utils/receipt-scan';
+import { logShareIntent } from '@/utils/share-intent-log';
 import { formatCentsForEditing } from '@/utils/transactions';
 
 /**
@@ -27,23 +28,50 @@ export default function SharedReceiptScreen() {
   const files = shareIntent.files ?? [];
   const image = files.find((file) => file.mimeType?.startsWith('image/')) ?? files[0];
 
+  // Log the payload once per change (metadata only, never file contents).
+  // Deduped by fingerprint so re-renders don't spam the dev console.
+  useEffect(() => {
+    const currentFiles = shareIntent.files ?? [];
+    const fingerprint = JSON.stringify({
+      type: shareIntent.type,
+      files: currentFiles.map((file) => ({
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        size: file.size,
+        width: file.width,
+        height: file.height,
+      })),
+      hasText: Boolean(shareIntent.text),
+      hasWebUrl: Boolean(shareIntent.webUrl),
+    });
+    logShareIntent('payload received', { isReady, fingerprint });
+  }, [isReady, shareIntent]);
+
   const handleImport = async (kind: ReceiptKind) => {
     if (!image || isScanning) {
       return;
     }
 
+    logShareIntent('import started', {
+      kind,
+      fileName: image.fileName,
+      mimeType: image.mimeType,
+      size: image.size,
+    });
     setIsScanning(true);
     setError(null);
 
     const result = await scanReceiptFromUri(image.path, kind);
 
     if (result.status === 'unavailable') {
+      logShareIntent('import unavailable', result.reason);
       setError(t(receiptScanUnavailableKey(result.reason)));
       setIsScanning(false);
       return;
     }
 
     if (result.status === 'error') {
+      logShareIntent('import error', result.messageKey);
       setError(t(result.messageKey));
       setIsScanning(false);
       return;
@@ -68,6 +96,10 @@ export default function SharedReceiptScreen() {
     }
 
     resetShareIntent();
+    logShareIntent('import succeeded, opening form', {
+      pathname: kind === 'income' ? '/add-income' : '/add-expense',
+      params,
+    });
     router.replace({
       pathname: kind === 'income' ? '/add-income' : '/add-expense',
       params,
