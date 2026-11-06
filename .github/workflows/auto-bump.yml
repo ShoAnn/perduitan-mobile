@@ -1,0 +1,42 @@
+name: Auto Bump Version
+on:
+  push:
+    branches: [main]
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Skip bump for bot commits
+        id: skip
+        run: |
+          if git log -1 --pretty=%s | grep -q '\[skip ci\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Bump version and tag
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          if [[ "$MSG" == *"feat"* ]]; then
+            BUMP="minor"
+          elif [[ "$MSG" == *"fix"* ]]; then
+            BUMP="patch"
+          else
+            echo "No bump for: $MSG"
+            exit 0
+          fi
+          npm version "$BUMP" --no-git-tag-version
+          node -e "const fs=require('fs');const p='app.json';const d=JSON.parse(fs.readFileSync(p));d.expo.version=require('./package.json').version;fs.writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json app.json
+          git commit -m "chore: bump to v$(node -p "require('./package.json').version") [skip ci]"
+          git tag "v$(node -p "require('./package.json').version")"
+          git push origin HEAD:main
+          git push origin --tags
